@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { SEVERITY_COLOR, SEVERITY_LABEL, sortBySeverity } from "@/lib/utils/severity";
-import { STANDARD_SECTIONS, labelForSection } from "@/lib/supabase/sections";
-import type { Finding, Severity, SectionType } from "@/lib/supabase/types";
+import { labelForSection } from "@/lib/supabase/sections";
+import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -21,12 +21,31 @@ export default async function ReviewPage({ params }: Props) {
   const { data: sections } = await supabase
     .from("inspection_sections")
     .select("id, section_type, section_order")
-    .eq("inspection_id", id);
+    .eq("inspection_id", id)
+    .order("section_order");
 
   const { data: findings } = await supabase
     .from("findings")
-    .select("id, section_id, severity, title, description, recommended_action, is_approved")
+    .select("id, section_id, photo_id, severity, title, description, recommended_action, is_approved")
     .eq("inspection_id", id);
+
+  const { data: photoRows } = await supabase
+    .from("photos")
+    .select("id, section_id, storage_path, created_at")
+    .eq("inspection_id", id)
+    .order("created_at", { ascending: false });
+
+  // Sign URLs for photos (private bucket)
+  const paths = (photoRows ?? []).map((p) => p.storage_path as string);
+  const signed = new Map<string, string>();
+  if (paths.length) {
+    const { data: urls } = await supabase.storage
+      .from("inspection-media")
+      .createSignedUrls(paths, 60 * 60);
+    for (const u of urls ?? []) {
+      if (u.signedUrl && u.path) signed.set(u.path, u.signedUrl);
+    }
+  }
 
   const findingsBySection = new Map<string | null, Finding[]>();
   for (const f of findings ?? []) {
@@ -35,9 +54,13 @@ export default async function ReviewPage({ params }: Props) {
     findingsBySection.get(k)!.push(f as Finding);
   }
 
-  const sectionRows = (sections ?? [])
-    .slice()
-    .sort((a, b) => (a.section_order ?? 0) - (b.section_order ?? 0));
+  const photosBySection = new Map<string | null, (Photo & { url: string | null })[]>();
+  for (const p of photoRows ?? []) {
+    const k = (p.section_id as string | null) ?? null;
+    if (!photosBySection.has(k)) photosBySection.set(k, []);
+    const url = signed.get(p.storage_path as string) ?? null;
+    photosBySection.get(k)!.push({ ...(p as unknown as Photo), url });
+  }
 
   const approvedCount = (findings ?? []).filter((f) => f.is_approved).length;
   const totalCount = findings?.length ?? 0;
@@ -46,30 +69,26 @@ export default async function ReviewPage({ params }: Props) {
     <div className="space-y-6">
       <Card>
         <CardContent className="p-5 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
+          <Stat label="Photos" value={String(photoRows?.length ?? 0)} />
           <Stat label="Findings" value={String(totalCount)} />
           <Stat label="Approved" value={`${approvedCount} / ${totalCount}`} />
           {inspection.property_year_built && (
             <Stat label="Year built" value={String(inspection.property_year_built)} />
           )}
           {inspection.property_sqft && (
-            <Stat label="Square feet" value={inspection.property_sqft.toLocaleString()} />
-          )}
-          {inspection.property_type && (
-            <Stat label="Type" value={String(inspection.property_type).replace(/_/g, " ")} />
+            <Stat label="Sq ft" value={inspection.property_sqft.toLocaleString()} />
           )}
           <SeverityLegend findings={(findings ?? []) as Finding[]} />
         </CardContent>
       </Card>
 
-      {sectionRows.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center text-sm text-slate-500">
-            No sections yet. Capture photos from a phone to start.
-          </CardContent>
-        </Card>
+      {!sections?.length ? (
+        <EmptyState message="No sections yet. Capture photos from a phone to start." />
       ) : (
-        sectionRows.map((s) => {
-          const f = sortBySeverity(findingsBySection.get(s.id) ?? []);
+        sections.map((s) => {
+          const sectionFindings = sortBySeverity(findingsBySection.get(s.id) ?? []);
+          const sectionPhotos = photosBySection.get(s.id) ?? [];
+          if (sectionPhotos.length === 0 && sectionFindings.length === 0) return null;
           return (
             <section key={s.id} className="space-y-3">
               <div className="flex items-baseline justify-between">
@@ -77,18 +96,30 @@ export default async function ReviewPage({ params }: Props) {
                   {labelForSection(s.section_type as SectionType)}
                 </h2>
                 <span className="text-xs text-slate-400">
-                  {f.length} finding{f.length === 1 ? "" : "s"}
+                  {sectionPhotos.length} photo{sectionPhotos.length === 1 ? "" : "s"} ·{" "}
+                  {sectionFindings.length} finding{sectionFindings.length === 1 ? "" : "s"}
                 </span>
               </div>
-              {f.length === 0 ? (
-                <Card>
-                  <CardContent className="p-4 text-sm text-slate-400 italic">
-                    No findings drafted yet.
-                  </CardContent>
-                </Card>
-              ) : (
+
+              {sectionPhotos.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {sectionPhotos.map((p) => (
+                    <div
+                      key={p.id}
+                      className="aspect-square overflow-hidden rounded-lg bg-slate-100 border border-slate-200"
+                    >
+                      {p.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.url} alt="" className="h-full w-full object-cover" />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {sectionFindings.length > 0 && (
                 <div className="space-y-2">
-                  {f.map((finding) => (
+                  {sectionFindings.map((finding) => (
                     <FindingCard key={finding.id} finding={finding} />
                   ))}
                 </div>
@@ -109,7 +140,9 @@ function FindingCard({ finding }: { finding: Finding }) {
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${c.pill}`}>
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${c.pill}`}
+              >
                 <span className={`inline-block h-1.5 w-1.5 rounded-full ${c.dot}`} />
                 {SEVERITY_LABEL[finding.severity]}
               </span>
@@ -165,5 +198,10 @@ function SeverityLegend({ findings }: { findings: Finding[] }) {
   );
 }
 
-// keep linter happy about STANDARD_SECTIONS import (we use labelForSection only here)
-void STANDARD_SECTIONS;
+function EmptyState({ message }: { message: string }) {
+  return (
+    <Card>
+      <CardContent className="p-10 text-center text-sm text-slate-500">{message}</CardContent>
+    </Card>
+  );
+}
