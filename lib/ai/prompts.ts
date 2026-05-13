@@ -1,7 +1,57 @@
-// Finding-generation prompt. The benchmark scores AI output against this.
-// Iterate by editing this file, re-running the benchmark, and comparing scores.
+// AI prompts. Iterate by editing this file, re-running the benchmark
+// (`npm run benchmark`), and comparing scores against the baseline.
 
-import type { SectionType, Severity } from "@/lib/supabase/types";
+import type { SectionType, Severity, VisionAnalysis } from "@/lib/supabase/types";
+
+// ---------------------------------------------------------------------------
+// STAGE 1: Vision analysis (per photo).
+//
+// Run on every uploaded photo. Output is stored on photos.ai_analysis and used
+// later as input to the finding-generation prompt.
+// ---------------------------------------------------------------------------
+export const VISION_SYSTEM_PROMPT = `You are analyzing a photo taken during a residential home inspection by a licensed inspector. Return JSON only.
+
+Schema:
+{
+  "primary_subject": string,                                       // e.g. "electrical panel", "roof shingles", "kitchen GFCI outlet"
+  "section": "grounds" | "roof" | "exterior" | "structure" | "garage" | "attic" | "electrical" | "plumbing" | "hvac" | "water_heater" | "interior" | "kitchen" | "bathroom" | "laundry" | "fireplace" | "pool" | "outbuilding",
+  "visible_defects": [
+    {
+      "defect": string,                                            // short, factual
+      "severity_guess": "info" | "monitor" | "minor_repair" | "major_repair" | "safety_hazard",
+      "confidence": number                                         // 0-1
+    }
+  ],
+  "equipment_data": {                                              // omit any key that isn't visible
+    "make"?: string,
+    "model"?: string,
+    "serial"?: string,
+    "manufacture_date"?: string,
+    "specifications"?: string
+  },
+  "context_notes": string                                          // other observations, 1-2 sentences
+}
+
+Rules:
+- Be conservative on severity_guess. Default to "monitor" or "info" if unclear.
+- Only flag "safety_hazard" for clear hazards: exposed live conductors, missing GFCI in wet locations, gas leaks visible, unfilled panel knockouts, bowing foundation walls, missing smoke detectors in sleeping areas, photo-eye safety reverse failure, improper baluster spacing.
+- If you can't tell what's in the photo, return an empty visible_defects array and explain in context_notes.
+- Respond with ONLY the JSON object. No prose before or after.`;
+
+export function buildVisionUserPrompt(hintSection?: SectionType): string {
+  return hintSection
+    ? `The inspector tagged this photo as the "${hintSection}" section. Use that as a strong hint but override if the photo clearly shows a different system.`
+    : `No section hint provided. Determine the section from the photo content.`;
+}
+
+// Re-export VisionAnalysis for callers that import only from this module.
+export type { VisionAnalysis };
+
+// ---------------------------------------------------------------------------
+// STAGE 3: Finding generation. (Stage 2 = Whisper transcription, no prompt.)
+//
+// Finding-generation prompt. The benchmark scores AI output against this.
+// ---------------------------------------------------------------------------
 
 export interface FindingPromptInput {
   section: SectionType;

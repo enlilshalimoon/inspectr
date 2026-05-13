@@ -59,6 +59,8 @@ export default async function CapturePage({ params }: Props) {
     storage_path: p.storage_path as string,
     url: signed[p.storage_path as string] ?? null,
     status: "uploaded" as const,
+    ai_status: "idle" as const,
+    voice: { state: "idle" as const },
   }));
 
   return (
