@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { labelForSection } from "@/lib/supabase/sections";
 import type { SectionType } from "@/lib/supabase/types";
+import type { Severity } from "@/lib/supabase/types";
 import { CaptureClient, type CapturePhoto, type SectionOption } from "./capture-client";
 
 type Props = { params: Promise<{ id: string }> };
@@ -36,7 +37,9 @@ export default async function CapturePage({ params }: Props) {
 
   const { data: photoRows } = await supabase
     .from("photos")
-    .select("id, section_id, storage_path, created_at")
+    .select(
+      "id, section_id, storage_path, created_at, ai_analysis, findings(id, severity, title)",
+    )
     .eq("inspection_id", id)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -53,15 +56,25 @@ export default async function CapturePage({ params }: Props) {
     }
   }
 
-  const photos: CapturePhoto[] = (photoRows ?? []).map((p) => ({
-    id: p.id as string,
-    section_id: (p.section_id as string | null) ?? null,
-    storage_path: p.storage_path as string,
-    url: signed[p.storage_path as string] ?? null,
-    status: "uploaded" as const,
-    ai_status: "idle" as const,
-    voice: { state: "idle" as const },
-  }));
+  type RowWithFindings = {
+    id: string;
+    section_id: string | null;
+    storage_path: string;
+    findings?: { id: string; severity: Severity; title: string }[] | null;
+  };
+  const photos: CapturePhoto[] = ((photoRows ?? []) as unknown as RowWithFindings[]).map((p) => {
+    const finding = p.findings?.[0] ?? null;
+    return {
+      id: p.id,
+      section_id: p.section_id ?? null,
+      storage_path: p.storage_path,
+      url: signed[p.storage_path] ?? null,
+      status: "uploaded" as const,
+      ai_status: finding ? ("drafted" as const) : ("idle" as const),
+      finding: finding ? { id: finding.id, severity: finding.severity, title: finding.title } : null,
+      voice: { state: "idle" as const },
+    };
+  });
 
   return (
     <CaptureClient

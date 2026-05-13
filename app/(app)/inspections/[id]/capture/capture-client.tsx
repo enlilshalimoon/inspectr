@@ -51,10 +51,10 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = useMemo(() => createClient(), []);
 
-  // Backfill: kick AI processing for any existing photo without a finding.
+  // Backfill: kick AI processing for any existing photo that hasn't been drafted yet.
   useEffect(() => {
     for (const p of initialPhotos) {
-      if (p.status === "uploaded") {
+      if (p.status === "uploaded" && !p.finding) {
         void processPhotoAI(p.id);
       }
     }
