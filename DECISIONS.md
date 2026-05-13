@@ -87,6 +87,25 @@ Append-only record of meaningful tech decisions. Each entry: date, decision, why
 
 ---
 
+## 2026-05-13 — Industry benchmark before prompt tuning
+
+**Decision:** Built a 29-case calibration test set (`db/benchmark/cases/*.json`) grounded in InterNACHI's Standards of Practice §3.1–3.10. The runner (`scripts/benchmark.ts`, `npm run benchmark`) calls Claude with our system prompt and scores output on severity + keyword presence. Baseline against `claude-sonnet-4-6`: **86% (100/116)**.
+
+**Why:** We want to design prompts to pass a known-good test, not write prompts and hope. Per-section scores tell us where the prompt is weak. Beta-tester edits in week 8+ become new test cases.
+
+**What we learned from the baseline:**
+- Severity calls are mostly right (24/29). The misses are genuine judgment-call disagreements (e.g. "Federal Pacific panel that was retrofitted" — got info, correct; "16-yr-old water heater with corrosion" — got major_repair, I expected monitor, both defensible).
+- The prose quality is excellent and reads like a real inspector. Most "title missed keyword" failures are the AI using more precise language than my benchmark required (wrote "p-trap" instead of "sink").
+- Hard rules are holding: no dollar amounts even when the inspector volunteered them, no use of the word "dangerous", correctly defers to inspector when vision AI conflicts.
+
+**Reconsider if:** Real beta-tester edit rate is >30%. Then we tune the prompt and re-run benchmark to verify the fix didn't break other cases. Also: keyword scoring is brittle — when we have budget for it, add LLM-as-judge for description quality (a second Claude call grades each output 1-5).
+
+**Operational notes:**
+- `.env*` is gitignored. Dotenv preload uses `dotenv_config_override=true` because the Claude Code shell sets a placeholder `ANTHROPIC_API_KEY` that would otherwise win.
+- Each run writes a timestamped markdown report to `db/benchmark/results/`. Those reports are gitignored too — they contain quoted SoP language and full LLM outputs that bloat the repo.
+
+---
+
 ## 2026-05-12 — PDF generation = React-PDF
 
 **Decision:** `@react-pdf/renderer` for the final report PDF.

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "plumb-001",
+    "section": "plumbing",
+    "source": "InterNACHI SoP §3.6 — active leaks must be reported",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "under-sink p-trap with visible water",
+        "section": "plumbing",
+        "visible_defects": [
+          { "defect": "Water droplets and staining on p-trap and cabinet floor", "severity_guess": "major_repair", "confidence": 0.85 }
+        ],
+        "equipment_data": {},
+        "context_notes": "PVC p-trap. Pooled water on the cabinet floor liner, water stains on the wood."
+      },
+      "transcript": "Under the kitchen sink — active drip from the p-trap. There's standing water on the cabinet floor and the wood is stained. Been going on for a while."
+    },
+    "expected": {
+      "severity": "major_repair",
+      "title_must_include": ["leak", "sink"],
+      "description_must_include": ["leak", "cabinet"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["licensed plumber"],
+      "rationale": "Active leak with evidence of duration (staining, wood damage). SoP explicitly requires reporting active leaks. Major because it's causing secondary damage."
+    }
+  },
+  {
+    "id": "plumb-002",
+    "section": "plumbing",
+    "source": "InterNACHI SoP §3.6 — toilet operation",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "toilet at base of bowl",
+        "section": "plumbing",
+        "visible_defects": [
+          { "defect": "Toilet rocks slightly when pressure is applied; visible gap at floor", "severity_guess": "minor_repair", "confidence": 0.75 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Toilet base shows small gap between porcelain and tile floor. No visible water staining on floor or ceiling below."
+      },
+      "transcript": "Hall bath toilet is loose at the base, rocks a little. Not leaking right now but the wax ring is probably going. Should get it re-set."
+    },
+    "expected": {
+      "severity": "minor_repair",
+      "title_must_include": ["toilet", "loose"],
+      "description_must_include": ["wax ring", "rocks"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["plumber"],
+      "rationale": "SoP explicitly lists 'loose connections to the floor' as a defect to report. No active leak yet so minor_repair, not major."
+    }
+  },
+  {
+    "id": "plumb-003",
+    "section": "plumbing",
+    "source": "InterNACHI SoP §3.6 — water flow at two fixtures",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "shower head with weak stream",
+        "section": "plumbing",
+        "visible_defects": [
+          { "defect": "Reduced flow when sink and shower run simultaneously", "severity_guess": "monitor", "confidence": 0.6 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Single-family home, ran sink and shower in same bathroom."
+      },
+      "transcript": "Pressure drops noticeably in this bathroom when the sink and the shower run at the same time. Could be supply line size, could be aging galvanized. Worth monitoring."
+    },
+    "expected": {
+      "severity": "monitor",
+      "title_must_include": ["pressure", "water"],
+      "description_must_include": ["flow", "simultaneously"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["plumber"],
+      "rationale": "SoP says report flow deficiencies at two fixtures. Inspector said 'monitor' explicitly. Could indicate galvanized pipe nearing end of life but not yet a failure."
+    }
+  },
+  {
+    "id": "plumb-004",
+    "section": "plumbing",
+    "source": "Water heater TPR valve",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "water heater TPR valve and discharge tube",
+        "section": "water_heater",
+        "visible_defects": [
+          { "defect": "TPR discharge tube terminates ~24 inches above floor, not within 6 inches", "severity_guess": "major_repair", "confidence": 0.9 }
+        ],
+        "equipment_data": { "make": "AO Smith", "specifications": "50 gal gas" },
+        "context_notes": "Discharge tube is copper, terminates well above the floor drain."
+      },
+      "transcript": "Water heater TPR discharge tube ends about two feet off the floor. Should be within six inches of the floor. Code issue."
+    },
+    "expected": {
+      "severity": "major_repair",
+      "title_must_include": ["TPR", "discharge"],
+      "description_must_include": ["discharge", "floor"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["licensed plumber"],
+      "rationale": "TPR discharge improperly terminated = if valve opens, scalding water sprays at occupant height. Code violation. Major repair."
+    }
+  }
+]

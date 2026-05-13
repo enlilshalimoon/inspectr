@@ -1,0 +1,50 @@
+[
+  {
+    "id": "attic-001",
+    "section": "attic",
+    "source": "InterNACHI SoP §3.9 — insulation depth observation",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "attic floor with blown-in cellulose insulation",
+        "section": "attic",
+        "visible_defects": [],
+        "equipment_data": {},
+        "context_notes": "Insulation appears to average 6-8 inches deep, settled in places."
+      },
+      "transcript": "Attic insulation is blown-in cellulose, averaging about 7 inches. That's around R-25. Current code is R-49 for this zone. Functional but undersized by today's standards."
+    },
+    "expected": {
+      "severity": "info",
+      "title_must_include": ["insulation"],
+      "description_must_include": ["insulation"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": [],
+      "rationale": "Under-insulated for current code but not a defect — pre-existing condition. Info finding documenting type and depth per SoP §3.9. Buyer's call whether to upgrade."
+    }
+  },
+  {
+    "id": "attic-002",
+    "section": "attic",
+    "source": "InterNACHI SoP §3.9 — ventilation absence",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "attic ridge area with no visible vents",
+        "section": "attic",
+        "visible_defects": [
+          { "defect": "No ridge vent or gable vents visible; soffit vents covered with insulation", "severity_guess": "minor_repair", "confidence": 0.75 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Sheathing shows mild moisture staining."
+      },
+      "transcript": "Attic ventilation is poor. No ridge vent, soffits are blocked by insulation. There's some moisture staining starting. Need to open the soffits and probably add a ridge vent before this becomes mold."
+    },
+    "expected": {
+      "severity": "minor_repair",
+      "title_must_include": ["ventilation", "attic"],
+      "description_must_include": ["vent", "soffit"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["contractor"],
+      "rationale": "SoP requires reporting general absence of ventilation. Moisture staining present means it's progressing — minor_repair, not just info."
+    }
+  }
+]

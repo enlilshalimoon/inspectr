@@ -1,0 +1,127 @@
+[
+  {
+    "id": "elec-001",
+    "section": "electrical",
+    "source": "InterNACHI SoP §3.7 — GFCI required in wet locations",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "kitchen countertop electrical outlet",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "Standard duplex receptacle within ~3 ft of kitchen sink, no GFCI", "severity_guess": "safety_hazard", "confidence": 0.85 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Outlet is on backsplash directly to the right of the sink basin."
+      },
+      "transcript": "Outlet next to the kitchen sink, not GFCI. This needs to be GFCI protected."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["GFCI", "kitchen"],
+      "description_must_include": ["GFCI", "kitchen"],
+      "description_must_not_include": ["dangerous", "$", "dollars"],
+      "action_must_include": ["licensed electrician"],
+      "rationale": "Missing GFCI within 6 ft of a sink is a code violation and shock risk. Clear safety_hazard."
+    }
+  },
+  {
+    "id": "elec-002",
+    "section": "electrical",
+    "source": "InterNACHI SoP §3.7 — service panel inspection",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "electrical service panel interior",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "Two unfilled circuit-breaker knockout openings", "severity_guess": "safety_hazard", "confidence": 0.9 }
+        ],
+        "equipment_data": { "make": "Square D", "specifications": "200A main" },
+        "context_notes": "Panel cover removed. Two open knockouts on the lower-right row."
+      },
+      "transcript": "Looking at the panel, there's two open breaker knockouts. Need filler plates here."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["knockout", "panel"],
+      "description_must_include": ["panel", "opening"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["licensed electrician"],
+      "rationale": "Open knockouts allow finger/foreign-object contact with live bus. SoP explicitly calls this out as a required defect to report."
+    }
+  },
+  {
+    "id": "elec-003",
+    "section": "electrical",
+    "source": "InterNACHI SoP §3.7 — receptacle test failures",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "bedroom wall outlet",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "Reverse polarity indicated on tester", "severity_guess": "major_repair", "confidence": 0.95 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Three-prong outlet, tester shows hot/neutral reversed."
+      },
+      "transcript": "Outlet in the master bedroom is reverse polarity. Tester is showing hot and neutral swapped."
+    },
+    "expected": {
+      "severity": "major_repair",
+      "title_must_include": ["polarity", "outlet"],
+      "description_must_include": ["polarity", "hot", "neutral"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["licensed electrician"],
+      "rationale": "Reverse polarity is a wiring defect. Not immediately dangerous like exposed wire, but a shock risk to connected devices."
+    }
+  },
+  {
+    "id": "elec-004",
+    "section": "electrical",
+    "source": "Inspector judgment overrides vision AI when they conflict",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "bathroom outlet",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "Outlet appears non-GFCI", "severity_guess": "safety_hazard", "confidence": 0.55 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Photo angle obscures the test/reset buttons."
+      },
+      "transcript": "This is the bathroom outlet. It tested fine on the GFCI tester — it's GFCI protected upstream from a different outlet, I confirmed it trips."
+    },
+    "expected": {
+      "severity": "info",
+      "title_must_include": ["GFCI"],
+      "description_must_include": ["protected", "upstream"],
+      "description_must_not_include": ["dangerous", "$", "violation"],
+      "action_must_include": [],
+      "rationale": "Inspector explicitly says it's GFCI-protected via upstream device. Trust the inspector. Severity = info (it's a confirming observation, not a defect)."
+    }
+  },
+  {
+    "id": "elec-005",
+    "section": "electrical",
+    "source": "InterNACHI SoP §3.7 — smoke detectors",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "hallway ceiling, no smoke detector present",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "No smoke detector visible in hallway leading to bedrooms", "severity_guess": "safety_hazard", "confidence": 0.8 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Standard residential hallway, no mounting hole or wiring visible."
+      },
+      "transcript": "Hallway outside the bedrooms — no smoke detector. There's one in the living room and the kitchen, but nothing here. This is a sleeping area, needs one."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["smoke detector"],
+      "description_must_include": ["smoke detector", "hallway"],
+      "description_must_not_include": ["dangerous"],
+      "action_must_include": ["install"],
+      "rationale": "SoP requires reporting absence of smoke detectors. Sleeping-area adjacent hallway is highest-risk location."
+    }
+  }
+]

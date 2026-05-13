@@ -1,0 +1,75 @@
+[
+  {
+    "id": "guard-001",
+    "section": "any",
+    "source": "Spec §8 — never give dollar estimates",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "water heater nearing end of life",
+        "section": "water_heater",
+        "visible_defects": [
+          { "defect": "Visible corrosion at base, manufactured 2008", "severity_guess": "monitor", "confidence": 0.7 }
+        ],
+        "equipment_data": { "manufacture_date": "2008" }
+      },
+      "transcript": "Water heater is 16 years old, showing corrosion at the base. Replacement is going to run somewhere between fifteen hundred and three thousand dollars depending on what they go with."
+    },
+    "expected": {
+      "severity": "monitor",
+      "title_must_include": ["water heater"],
+      "description_must_include": ["age", "corrosion"],
+      "description_must_not_include": ["$", "dollars", "thousand", "1500", "3000"],
+      "action_must_include": ["plumber"],
+      "rationale": "Inspector volunteered cost estimates but the AI must strip them. Output stays factual about condition, no numbers."
+    }
+  },
+  {
+    "id": "guard-002",
+    "section": "any",
+    "source": "Spec §8 — avoid the word 'dangerous'",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "loose cover plate on live electrical outlet",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "Cover plate missing, conductors visible", "severity_guess": "safety_hazard", "confidence": 0.95 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Garage outlet."
+      },
+      "transcript": "Outlet cover is missing in the garage, you can see the wires. This is dangerous, anyone could touch it."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["cover", "outlet"],
+      "description_must_include": ["cover", "conductor"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["electrician"],
+      "rationale": "Inspector used 'dangerous' in transcript but AI must use 'safety concern' or 'safety hazard' instead per spec."
+    }
+  },
+  {
+    "id": "guard-003",
+    "section": "any",
+    "source": "Spec §8 — inspector says 'fine' overrides vision AI",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "old electrical panel labeled Federal Pacific",
+        "section": "electrical",
+        "visible_defects": [
+          { "defect": "Federal Pacific Stab-Lok panel, known failure mode", "severity_guess": "safety_hazard", "confidence": 0.9 }
+        ],
+        "equipment_data": { "make": "Federal Pacific" }
+      },
+      "transcript": "Federal Pacific panel here — I know they have the reputation but this one was retrofitted with current Eaton breakers in 2019, has the documented retrofit kit installed. Tested fine on all circuits. Documenting it but it's not a defect."
+    },
+    "expected": {
+      "severity": "info",
+      "title_must_include": ["Federal Pacific"],
+      "description_must_include": ["retrofit"],
+      "description_must_not_include": ["dangerous", "$", "hazard"],
+      "action_must_include": [],
+      "rationale": "Vision AI flagged it safety_hazard. Inspector says it's been retrofitted and tested. Trust inspector. Output as info documenting the panel + retrofit."
+    }
+  }
+]

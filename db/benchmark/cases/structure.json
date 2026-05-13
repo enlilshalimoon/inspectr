@@ -1,0 +1,77 @@
+[
+  {
+    "id": "struct-001",
+    "section": "structure",
+    "source": "InterNACHI SoP §3.3 — foundation movement indicators",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "interior drywall crack at door frame corner",
+        "section": "structure",
+        "visible_defects": [
+          { "defect": "Diagonal drywall crack from top corner of interior door frame, ~18 inches", "severity_guess": "monitor", "confidence": 0.7 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Door frame appears slightly out of square. Crack is hairline width."
+      },
+      "transcript": "Diagonal crack above the bedroom door, runs about a foot and a half. The door frame itself is a bit out of square — door doesn't latch cleanly. Could be settling, could be ongoing. Worth monitoring and re-checking in a year."
+    },
+    "expected": {
+      "severity": "monitor",
+      "title_must_include": ["crack", "door"],
+      "description_must_include": ["crack", "out of square"],
+      "description_must_not_include": ["dangerous", "$", "imminent"],
+      "action_must_include": ["monitor"],
+      "rationale": "SoP §3.3 lists sheetrock cracks + out-of-square door frames as possible foundation movement indicators. Inspector explicitly said monitor. Don't escalate to structural engineer unless severity warrants it."
+    }
+  },
+  {
+    "id": "struct-002",
+    "section": "structure",
+    "source": "InterNACHI SoP §3.3 — wood in contact with soil",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "wood deck post at grade level",
+        "section": "structure",
+        "visible_defects": [
+          { "defect": "Pressure-treated 4x4 deck post in direct contact with soil; visible rot at base", "severity_guess": "major_repair", "confidence": 0.9 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Probed with awl — wood is soft for the lower 4 inches."
+      },
+      "transcript": "Deck post is sitting right in the dirt, no concrete pier, no standoff. Base is rotted, probed soft. Needs to be lifted onto a proper post base."
+    },
+    "expected": {
+      "severity": "major_repair",
+      "title_must_include": ["deck post", "rot"],
+      "description_must_include": ["soil", "rot"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["licensed contractor"],
+      "rationale": "SoP explicitly requires reporting wood-soil contact. Rot already present = major repair, not monitor."
+    }
+  },
+  {
+    "id": "struct-003",
+    "section": "structure",
+    "source": "Foundation crack - distinguishing hairline vs. structural",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "poured concrete foundation wall in basement",
+        "section": "structure",
+        "visible_defects": [
+          { "defect": "Horizontal crack across foundation wall, ~1/4 inch wide at center", "severity_guess": "safety_hazard", "confidence": 0.85 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Crack runs horizontally for approx 6 ft. Slight inward bulge visible. No active water."
+      },
+      "transcript": "Basement wall, horizontal crack quarter-inch wide and running about six feet. Wall is bowing in. This is structural — recommend an engineer."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["foundation", "crack"],
+      "description_must_include": ["horizontal", "bow"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["structural engineer"],
+      "rationale": "Horizontal foundation crack with bowing = lateral soil pressure failure mode. This is the one foundation issue that escalates to safety_hazard. Engineer required."
+    }
+  }
+]

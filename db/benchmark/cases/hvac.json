@@ -1,0 +1,71 @@
+[
+  {
+    "id": "hvac-001",
+    "section": "hvac",
+    "source": "InterNACHI SoP §3.4 — heating system inoperable",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "gas furnace exterior, control board indicator",
+        "section": "hvac",
+        "visible_defects": [
+          { "defect": "Diagnostic LED flashing fault code; thermostat call for heat did not produce blower or burner activity", "severity_guess": "major_repair", "confidence": 0.85 }
+        ],
+        "equipment_data": { "make": "Lennox", "model": "ML180UH", "manufacture_date": "2012" }
+      },
+      "transcript": "Furnace would not start on a call for heat. Diagnostic light is flashing a code. Could be the ignitor, could be the gas valve. Needs a tech."
+    },
+    "expected": {
+      "severity": "major_repair",
+      "title_must_include": ["furnace"],
+      "description_must_include": ["operate", "heat"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["HVAC"],
+      "rationale": "SoP §3.4 explicitly: heating system that did not operate is a required-to-report defect. Don't diagnose specific component — refer to HVAC tech."
+    }
+  },
+  {
+    "id": "hvac-002",
+    "section": "hvac",
+    "source": "InterNACHI SoP §3.5 — cooling not tested due to outdoor temp",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "outdoor condenser unit",
+        "section": "hvac",
+        "visible_defects": [],
+        "equipment_data": { "make": "Carrier", "manufacture_date": "2019" },
+        "context_notes": "Unit looks clean and intact. Outdoor temp 52°F per weather."
+      },
+      "transcript": "Outdoor temp is 52 today so I didn't run the AC. Per SoP we don't operate below 65. Unit appears intact. Visual only."
+    },
+    "expected": {
+      "severity": "info",
+      "title_must_include": ["cooling", "not"],
+      "description_must_include": ["outdoor", "65"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": [],
+      "rationale": "Inspector documented the limitation. SoP §3.5 forbids operating AC below 65°F. This is an info finding, not a defect."
+    }
+  },
+  {
+    "id": "hvac-003",
+    "section": "hvac",
+    "source": "Aging system noted, still functional",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "outdoor condenser unit data plate",
+        "section": "hvac",
+        "visible_defects": [],
+        "equipment_data": { "make": "Trane", "model": "XR13", "manufacture_date": "2005" }
+      },
+      "transcript": "AC is from 2005. Ran on the test, cooled to about 20-degree split. Still working but it's at end of typical service life. R-22 refrigerant — getting expensive to service."
+    },
+    "expected": {
+      "severity": "monitor",
+      "title_must_include": ["cooling", "age"],
+      "description_must_include": ["R-22"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": [],
+      "rationale": "Aging but functional. R-22 phase-out is a real cost consideration for the buyer but we don't quote dollars. Monitor is the right severity."
+    }
+  }
+]

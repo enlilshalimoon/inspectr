@@ -1,0 +1,77 @@
+[
+  {
+    "id": "roof-001",
+    "section": "roof",
+    "source": "InterNACHI SoP §3.1 — active leak indicators",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "attic rafter with water staining",
+        "section": "attic",
+        "visible_defects": [
+          { "defect": "Dark staining on rafter and sheathing, ~2 ft diameter", "severity_guess": "major_repair", "confidence": 0.85 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Stain pattern radiates from a roof penetration (likely a vent pipe boot)."
+      },
+      "transcript": "Attic — staining on the sheathing right where the plumbing vent comes through. Boot is probably cracked. Active leak."
+    },
+    "expected": {
+      "severity": "major_repair",
+      "title_must_include": ["leak", "vent"],
+      "description_must_include": ["staining", "vent"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["roofing"],
+      "rationale": "SoP §3.1: active leak indicators must be reported. Cracked vent boot is one of the most common, fixable roof leaks. Major because it's actively wetting structure."
+    }
+  },
+  {
+    "id": "roof-002",
+    "section": "roof",
+    "source": "Asphalt shingle granule loss + age",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "asphalt shingle roof viewed from ground with binoculars",
+        "section": "roof",
+        "visible_defects": [
+          { "defect": "Heavy granule loss, several curling shingles at south-facing slope", "severity_guess": "monitor", "confidence": 0.7 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Roof viewed from ground level — SoP doesn't require walking the roof."
+      },
+      "transcript": "Roof is original asphalt shingle, looks 20-plus years old. Granule loss is significant on the south side, some curling. Functional today but at end of expected life. Recommend a roofer evaluate before next winter."
+    },
+    "expected": {
+      "severity": "monitor",
+      "title_must_include": ["shingle"],
+      "description_must_include": ["granule", "life"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["roofing"],
+      "rationale": "Aging roof, not yet failed. Monitor with timeframe is the right call. Don't predict service life specifically (SoP forbids that) but can note end-of-expected-life observation."
+    }
+  },
+  {
+    "id": "roof-003",
+    "section": "roof",
+    "source": "Inspector verbal override: cosmetic only",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "single lifted shingle near roof edge",
+        "section": "roof",
+        "visible_defects": [
+          { "defect": "Lifted shingle tab on edge of roof", "severity_guess": "minor_repair", "confidence": 0.6 }
+        ],
+        "equipment_data": {},
+        "context_notes": "One shingle tab visible from below."
+      },
+      "transcript": "Single shingle tab is lifted on the edge — looks like it was caught by wind. Easy fix. Glue it back down."
+    },
+    "expected": {
+      "severity": "minor_repair",
+      "title_must_include": ["shingle"],
+      "description_must_include": ["lifted"],
+      "description_must_not_include": ["dangerous", "$", "leak"],
+      "action_must_include": [],
+      "rationale": "One lifted tab is genuinely minor. Don't escalate to roofer evaluation unless inspector flagged it as a concern. Recommended action can be brief."
+    }
+  }
+]

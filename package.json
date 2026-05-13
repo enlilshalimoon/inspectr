@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "tsx -r dotenv/config scripts/migrate.ts dotenv_config_path=.env.local",
-    "db:storage": "tsx -r dotenv/config scripts/setup-storage.ts dotenv_config_path=.env.local",
-    "db:find-region": "tsx scripts/find-region.ts"
+    "db:migrate": "tsx -r dotenv/config scripts/migrate.ts dotenv_config_path=.env.local dotenv_config_override=true",
+    "db:storage": "tsx -r dotenv/config scripts/setup-storage.ts dotenv_config_path=.env.local dotenv_config_override=true",
+    "db:find-region": "tsx scripts/find-region.ts",
+    "benchmark": "tsx -r dotenv/config scripts/benchmark.ts dotenv_config_path=.env.local dotenv_config_override=true",
+    "seed:demo": "tsx -r dotenv/config scripts/seed-demo-inspection.ts dotenv_config_path=.env.local dotenv_config_override=true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.2",

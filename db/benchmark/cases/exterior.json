@@ -1,0 +1,77 @@
+[
+  {
+    "id": "ext-001",
+    "section": "exterior",
+    "source": "InterNACHI SoP §3.2 — railing baluster spacing",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "deck railing balusters",
+        "section": "exterior",
+        "visible_defects": [
+          { "defect": "Baluster spacing measures ~6 inches between rails", "severity_guess": "safety_hazard", "confidence": 0.9 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Deck is approximately 8 ft above grade."
+      },
+      "transcript": "Deck railing balusters are too far apart — about six inches. Should be no more than four. Kid could fit through. Safety issue."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["baluster", "spacing"],
+      "description_must_include": ["baluster", "spacing"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["contractor"],
+      "rationale": "SoP §3.2 explicitly names this: 'improper spacing between intermediate balusters'. Fall hazard for small children."
+    }
+  },
+  {
+    "id": "ext-002",
+    "section": "exterior",
+    "source": "InterNACHI SoP §3.2 — drainage/grading",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "ground near foundation, negative slope",
+        "section": "exterior",
+        "visible_defects": [
+          { "defect": "Grade slopes toward foundation on north side", "severity_guess": "minor_repair", "confidence": 0.75 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Visible erosion channel approaches foundation wall."
+      },
+      "transcript": "North side of house — ground slopes toward the foundation. You can see the erosion. Need to re-grade. Could lead to basement moisture."
+    },
+    "expected": {
+      "severity": "minor_repair",
+      "title_must_include": ["grade", "foundation"],
+      "description_must_include": ["slope", "foundation"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["grade"],
+      "rationale": "Negative grading is one of the most common findings. Cheap to fix, prevents costly moisture issues. Minor repair, not major unless active water intrusion."
+    }
+  },
+  {
+    "id": "ext-003",
+    "section": "exterior",
+    "source": "Caulking and minor sealant gaps",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "window trim with gap in caulk",
+        "section": "exterior",
+        "visible_defects": [
+          { "defect": "Gap in caulk at top of window trim, ~1/8 inch wide, 6 inches long", "severity_guess": "minor_repair", "confidence": 0.7 }
+        ],
+        "equipment_data": {},
+        "context_notes": "South-facing window."
+      },
+      "transcript": "Caulk has separated above this window. Small gap. Re-caulk before next rainy season."
+    },
+    "expected": {
+      "severity": "minor_repair",
+      "title_must_include": ["caulk"],
+      "description_must_include": ["caulk", "window"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": [],
+      "rationale": "Routine maintenance item. Minor repair, no specialty trade needed."
+    }
+  }
+]

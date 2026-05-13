@@ -1,0 +1,76 @@
+[
+  {
+    "id": "int-001",
+    "section": "interior",
+    "source": "InterNACHI SoP §3.10 — window seal failure",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "double-pane window with visible fogging between panes",
+        "section": "interior",
+        "visible_defects": [
+          { "defect": "Visible condensation between glass panes", "severity_guess": "minor_repair", "confidence": 0.85 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Living room window, large fixed pane."
+      },
+      "transcript": "Living room window has a failed seal — fogging between the panes. Functional but the IGU is shot. Buyer should know."
+    },
+    "expected": {
+      "severity": "minor_repair",
+      "title_must_include": ["window", "seal"],
+      "description_must_include": ["pane", "fog"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": [],
+      "rationale": "SoP explicitly: windows with fogged appearance or broken seal evidence. Common, fixable, not urgent."
+    }
+  },
+  {
+    "id": "int-002",
+    "section": "interior",
+    "source": "InterNACHI SoP §3.10 — stair handrail",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "interior stair handrail with loose attachment",
+        "section": "interior",
+        "visible_defects": [
+          { "defect": "Handrail moves laterally when pushed; bracket pulled partially from wall", "severity_guess": "safety_hazard", "confidence": 0.85 }
+        ],
+        "equipment_data": {},
+        "context_notes": "Stair to basement, 12-step run."
+      },
+      "transcript": "Basement stair handrail is loose, bracket is pulling out of the wall. With a 12-step run this is a real fall hazard. Need to secure into studs."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["handrail", "loose"],
+      "description_must_include": ["handrail", "bracket"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["secure"],
+      "rationale": "Loose handrail at full stair run is a fall hazard. SoP lists railings/guards/handrails specifically."
+    }
+  },
+  {
+    "id": "int-003",
+    "section": "interior",
+    "source": "InterNACHI SoP §3.10 — garage photo-eye safety reverse",
+    "input": {
+      "vision_analysis": {
+        "primary_subject": "garage door photo-eye sensor",
+        "section": "garage",
+        "visible_defects": [
+          { "defect": "Garage door did not reverse when photo-eye beam was blocked during closing", "severity_guess": "safety_hazard", "confidence": 0.9 }
+        ],
+        "equipment_data": { "make": "LiftMaster" }
+      },
+      "transcript": "Garage door — tested the photo-eye by blocking the beam during closing. Door didn't reverse. Photo-eye is either misaligned or failed. Safety issue."
+    },
+    "expected": {
+      "severity": "safety_hazard",
+      "title_must_include": ["photo-eye", "garage"],
+      "description_must_include": ["beam", "reverse"],
+      "description_must_not_include": ["dangerous", "$"],
+      "action_must_include": ["garage door"],
+      "rationale": "SoP §3.10 explicitly: photo-electric safety sensors not operating properly. This is the entrapment-risk failure mode."
+    }
+  }
+]
