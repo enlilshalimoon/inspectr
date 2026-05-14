@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SEVERITY_COLOR, SEVERITY_LABEL, sortBySeverity } from "@/lib/utils/severity";
 import { labelForSection } from "@/lib/supabase/sections";
 import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types";
+import { EditableFindingCard } from "./finding-card";
+import { BulkApproveButton } from "./bulk-approve-button";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -89,16 +91,25 @@ export default async function ReviewPage({ params }: Props) {
           const sectionFindings = sortBySeverity(findingsBySection.get(s.id) ?? []);
           const sectionPhotos = photosBySection.get(s.id) ?? [];
           if (sectionPhotos.length === 0 && sectionFindings.length === 0) return null;
+          const approvedInSection = sectionFindings.filter((f) => f.is_approved).length;
           return (
             <section key={s.id} className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-medium text-slate-900">
-                  {labelForSection(s.section_type as SectionType)}
-                </h2>
-                <span className="text-xs text-slate-400">
-                  {sectionPhotos.length} photo{sectionPhotos.length === 1 ? "" : "s"} ·{" "}
-                  {sectionFindings.length} finding{sectionFindings.length === 1 ? "" : "s"}
-                </span>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-baseline gap-3 min-w-0">
+                  <h2 className="text-lg font-medium text-slate-900">
+                    {labelForSection(s.section_type as SectionType)}
+                  </h2>
+                  <span className="text-xs text-slate-400 shrink-0">
+                    {sectionPhotos.length} photo{sectionPhotos.length === 1 ? "" : "s"} ·{" "}
+                    {sectionFindings.length} finding{sectionFindings.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <BulkApproveButton
+                  inspectionId={id}
+                  sectionId={s.id}
+                  totalCount={sectionFindings.length}
+                  approvedCount={approvedInSection}
+                />
               </div>
 
               {sectionPhotos.length > 0 && (
@@ -120,7 +131,11 @@ export default async function ReviewPage({ params }: Props) {
               {sectionFindings.length > 0 && (
                 <div className="space-y-2">
                   {sectionFindings.map((finding) => (
-                    <FindingCard key={finding.id} finding={finding} />
+                    <EditableFindingCard
+                      key={finding.id}
+                      finding={finding}
+                      inspectionId={id}
+                    />
                   ))}
                 </div>
               )}
@@ -129,39 +144,6 @@ export default async function ReviewPage({ params }: Props) {
         })
       )}
     </div>
-  );
-}
-
-function FindingCard({ finding }: { finding: Finding }) {
-  const c = SEVERITY_COLOR[finding.severity];
-  return (
-    <Card>
-      <CardContent className="p-4 sm:p-5 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border ${c.pill}`}
-              >
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${c.dot}`} />
-                {SEVERITY_LABEL[finding.severity]}
-              </span>
-              {finding.is_approved && (
-                <span className="text-xs text-emerald-700">✓ Approved</span>
-              )}
-            </div>
-            <h3 className="font-medium text-slate-900">{finding.title}</h3>
-          </div>
-        </div>
-        <p className="text-sm text-slate-700 leading-relaxed">{finding.description}</p>
-        {finding.recommended_action && (
-          <p className="text-sm text-slate-600 border-l-2 border-slate-200 pl-3">
-            <span className="font-medium text-slate-700">Recommended action:</span>{" "}
-            {finding.recommended_action}
-          </p>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
