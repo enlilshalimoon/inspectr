@@ -5,27 +5,35 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants, Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form-message";
-import { Check, Download, Link as LinkIcon, Loader2, FileText } from "lucide-react";
-import { finalizeInspection } from "../review/actions";
+import { Check, Download, Link as LinkIcon, Loader2, FileText, Send } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { finalizeInspection, sendReportEmail } from "../review/actions";
 
 type Props = {
   inspectionId: string;
   status: string;
   finalizedAt: string | null;
+  deliveredAt: string | null;
   shareSlug: string | null;
   pdfSignedUrl: string | null;
   totalFindings: number;
   unapprovedCount: number;
+  defaultClientEmail: string | null;
+  clientName: string | null;
 };
 
 export function FinalizePanel({
   inspectionId,
   status,
   finalizedAt,
+  deliveredAt,
   shareSlug,
   pdfSignedUrl,
   totalFindings,
   unapprovedCount,
+  defaultClientEmail,
+  clientName,
 }: Props) {
   const isFinalized = status === "finalized" || status === "delivered";
   const allApproved = totalFindings > 0 && unapprovedCount === 0;
@@ -33,6 +41,17 @@ export function FinalizePanel({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Email-send state
+  const [recipient, setRecipient] = useState(defaultClientEmail ?? "");
+  const [customMessage, setCustomMessage] = useState(
+    clientName
+      ? `Hi ${clientName.split(/\s+/)[0]},\n\nYour inspection report is ready. Let me know if you have any questions.\n\n`
+      : "",
+  );
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
+  const [sending, startSending] = useTransition();
 
   function onFinalize() {
     startTransition(async () => {
@@ -49,6 +68,20 @@ export function FinalizePanel({
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+
+  function sendEmail() {
+    setSendError(null);
+    setSendSuccess(null);
+    startSending(async () => {
+      const res = await sendReportEmail({
+        inspection_id: inspectionId,
+        recipient_email: recipient,
+        custom_message: customMessage,
+      });
+      if (!res.ok) setSendError(res.error);
+      else setSendSuccess(`Sent to ${res.delivered_to}.`);
+    });
   }
 
   if (isFinalized) {
@@ -105,7 +138,7 @@ export function FinalizePanel({
                   href={pdfSignedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={buttonVariants({ variant: "default" }) + " w-full sm:w-auto"}
+                  className={buttonVariants({ variant: "outline" }) + " w-full sm:w-auto"}
                 >
                   <Download className="h-4 w-4" />
                   Download PDF
@@ -113,9 +146,61 @@ export function FinalizePanel({
               </div>
             )}
             <p className="text-xs text-slate-500 pt-2">
-              The share link is public to anyone who has the URL. Email delivery coming in a
-              future build.
+              The share link is reachable to anyone who has the URL.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-slate-700 uppercase tracking-wide">
+                Email to client
+              </h3>
+              {deliveredAt && (
+                <span className="text-xs text-emerald-700 inline-flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Delivered {new Date(deliveredAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="recipient_email">Recipient email</Label>
+              <Input
+                id="recipient_email"
+                type="email"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="client@example.com"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="custom_message">Message (optional)</Label>
+              <textarea
+                id="custom_message"
+                rows={4}
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2"
+              />
+              <p className="text-xs text-slate-500">
+                Goes in the email body above the report link.
+              </p>
+            </div>
+
+            <FormMessage message={sendError} kind="error" />
+            <FormMessage message={sendSuccess} kind="success" />
+
+            <Button
+              type="button"
+              size="lg"
+              onClick={sendEmail}
+              disabled={sending || !recipient || !shareSlug}
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? "Sending…" : deliveredAt ? "Re-send" : "Send to client"}
+            </Button>
           </CardContent>
         </Card>
       </div>

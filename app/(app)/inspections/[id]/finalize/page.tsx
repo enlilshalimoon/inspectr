@@ -11,7 +11,9 @@ export default async function FinalizePage({ params }: Props) {
 
   const { data: inspection } = await supabase
     .from("inspections")
-    .select("id, status, finalized_at, share_url_slug, pdf_url, property_address")
+    .select(
+      "id, status, finalized_at, delivered_at, share_url_slug, pdf_url, property_address, client_email, client_name",
+    )
     .eq("id", id)
     .maybeSingle();
   if (!inspection) notFound();
@@ -40,10 +42,13 @@ export default async function FinalizePage({ params }: Props) {
       inspectionId={id}
       status={inspection.status}
       finalizedAt={inspection.finalized_at}
+      deliveredAt={inspection.delivered_at}
       shareSlug={inspection.share_url_slug}
       pdfSignedUrl={pdfSignedUrl}
       totalFindings={totalFindings ?? 0}
       unapprovedCount={unapproved ?? 0}
+      defaultClientEmail={inspection.client_email}
+      clientName={inspection.client_name}
     />
   );
 }

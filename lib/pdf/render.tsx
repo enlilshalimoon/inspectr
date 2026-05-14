@@ -114,6 +114,26 @@ export async function loadReportData(
   const sections =
     (sectionRows as { id: string; section_type: string; section_order: number }[] | null) ?? [];
 
+  // Fetch the logo as base64 so react-pdf can embed it
+  let logoData: string | null = null;
+  if (inspector?.company_logo_url) {
+    try {
+      const { data: signed } = await supabase.storage
+        .from("report-assets")
+        .createSignedUrl(inspector.company_logo_url, 60 * 5);
+      if (signed?.signedUrl) {
+        const res = await fetch(signed.signedUrl);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          const mime = res.headers.get("content-type") ?? "image/png";
+          logoData = `data:${mime};base64,${buf.toString("base64")}`;
+        }
+      }
+    } catch (err) {
+      console.warn("[pdf] logo fetch failed", err);
+    }
+  }
+
   return {
     property: {
       address: insp.property_address,
@@ -142,6 +162,7 @@ export async function loadReportData(
       license_state: inspector?.license_state ?? null,
       phone: inspector?.phone ?? null,
       company_logo_url: inspector?.company_logo_url ?? null,
+      logo_data: logoData,
       default_disclaimer: inspector?.default_disclaimer ?? null,
     },
     sections: sections.map((s) => ({

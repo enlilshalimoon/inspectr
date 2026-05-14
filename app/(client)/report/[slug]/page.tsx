@@ -35,7 +35,7 @@ export default async function PublicReportPage({ params }: Props) {
       sb
         .from("users")
         .select(
-          "full_name, company_name, license_number, license_state, phone, default_disclaimer",
+          "full_name, company_name, company_logo_url, license_number, license_state, phone, default_disclaimer",
         )
         .eq("id", inspection.inspector_id)
         .maybeSingle(),
@@ -97,6 +97,14 @@ export default async function PublicReportPage({ params }: Props) {
     pdfUrl = s?.signedUrl ?? null;
   }
 
+  let logoUrl: string | null = null;
+  if (inspector?.company_logo_url) {
+    const { data: s } = await sb.storage
+      .from("report-assets")
+      .createSignedUrl(inspector.company_logo_url, 60 * 60);
+    logoUrl = s?.signedUrl ?? null;
+  }
+
   const fullAddress = [
     inspection.property_address,
     [inspection.property_city, inspection.property_state].filter(Boolean).join(", "),
@@ -108,6 +116,14 @@ export default async function PublicReportPage({ params }: Props) {
   return (
     <article className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12 space-y-8">
       <header className="space-y-3 border-b border-slate-200 pb-6">
+        {logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={inspector?.company_name ?? ""}
+            className="h-16 w-16 object-contain mb-4"
+          />
+        )}
         <div className="text-xs uppercase tracking-widest text-slate-500">
           Residential Property Inspection Report
         </div>

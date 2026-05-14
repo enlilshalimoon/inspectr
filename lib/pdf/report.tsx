@@ -44,6 +44,7 @@ export interface ReportData {
     license_state: string | null;
     phone: string | null;
     company_logo_url: string | null;
+    logo_data: string | null;
     default_disclaimer: string | null;
   };
   sections: {
@@ -252,6 +253,14 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
     >
       {/* Cover page */}
       <Page size="LETTER" style={[styles.page, styles.coverPage]}>
+        {data.inspector.logo_data && (
+          <View style={{ marginBottom: 32 }}>
+            <Image
+              src={data.inspector.logo_data}
+              style={{ width: 80, height: 80, objectFit: "contain" }}
+            />
+          </View>
+        )}
         <Text style={styles.coverEyebrow}>Residential Property Inspection Report</Text>
         <Text style={styles.coverTitle}>{data.property.address}</Text>
         {(data.property.city || data.property.state) && (
