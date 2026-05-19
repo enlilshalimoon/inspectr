@@ -1,6 +1,6 @@
 {
-  "name": "Inspectr",
-  "short_name": "Inspectr",
+  "name": "Lookover",
+  "short_name": "Lookover",
   "description": "AI-assisted home inspection reports for residential inspectors.",
   "start_url": "/inspections",
   "scope": "/",

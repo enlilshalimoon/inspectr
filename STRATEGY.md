@@ -1,4 +1,4 @@
-# Inspectr — strategy
+# Lookover — strategy
 
 Living doc. Not a pitch. Things written here are my actual reading of the market, including the parts that aren't flattering.
 
@@ -59,7 +59,7 @@ That gap is real and it's the wedge.
 
 In normal vertical SaaS, the buyer is choosing between roughly-equivalent products. Switching costs (migrating client data, learning new UX, retraining staff) easily exceed the marginal benefit of switching. That's why incumbents like Spectora keep their grip even when their UX is dated.
 
-AI breaks this math by **changing the value proposition by an order of magnitude**, not a percentage. Concretely: if Inspectr saves an inspector 2.5 hours per inspection (4hr report → 30min review), at $50/hr opportunity cost and 250 inspections/year, that's **$31,250/year of time saved** per inspector. Against $1,548/year of subscription, that's a **20:1 ROI**.
+AI breaks this math by **changing the value proposition by an order of magnitude**, not a percentage. Concretely: if Lookover saves an inspector 2.5 hours per inspection (4hr report → 30min review), at $50/hr opportunity cost and 250 inspections/year, that's **$31,250/year of time saved** per inspector. Against $1,548/year of subscription, that's a **20:1 ROI**.
 
 When ROI is 20:1, switching costs don't matter. The price of *not* switching becomes the dominant cost.
 
@@ -117,7 +117,7 @@ This is the order. Don't jump phases.
 - $0.50 per finding (rolled into inspector's plan)
 - 50/50 split with inspector on the $40–80 buyer add-on (so the inspector keeps $20–40 pure margin per inspection)
 
-**Why this is phase 2, not phase 1:** It only works if inspectors already trust the platform with their core report. If we lead with estimates, inspectors get defensive ("you're saying you can do my job?"). If we follow with estimates after they're hooked, it's pure upside ("Inspectr also generates these helpful estimates I can upsell").
+**Why this is phase 2, not phase 1:** It only works if inspectors already trust the platform with their core report. If we lead with estimates, inspectors get defensive ("you're saying you can do my job?"). If we follow with estimates after they're hooked, it's pure upside ("Lookover also generates these helpful estimates I can upsell").
 
 **Reference business:** Repair Pricer is doing $5–10M ARR doing only this, sold as a separate product. We'd capture that and grow it because it's bundled into the existing workflow.
 
@@ -183,7 +183,7 @@ State-level inspector associations (Texas TAREI, California CREIA, etc.) are sma
 
 ### H4 — Real estate agent referral loop (medium confidence)
 
-Real estate agents recommend inspectors. If our reports look *dramatically* better than the alternatives — modern HTML report, mobile-friendly, branded, fast — agents will start recommending Inspectr-using inspectors specifically. That's pull through the channel.
+Real estate agents recommend inspectors. If our reports look *dramatically* better than the alternatives — modern HTML report, mobile-friendly, branded, fast — agents will start recommending Lookover-using inspectors specifically. That's pull through the channel.
 
 **Action:** Make the client-side report (the deliverable) genuinely beautiful. Phase 1 priority.
 
@@ -201,9 +201,9 @@ Building a list, sending emails. Inspectors are bad at email. Will probably unde
 
 ### R1 — Inspectors don't trust AI for liability reasons (high impact, medium probability)
 
-Every inspector carries E&O insurance. Their carrier may explicitly exclude AI-assisted reports. If carriers start excluding, Inspectr is dead in the water.
+Every inspector carries E&O insurance. Their carrier may explicitly exclude AI-assisted reports. If carriers start excluding, Lookover is dead in the water.
 
-**Mitigation:** Our "inspector approves every finding" architecture is the legal answer. AI drafts, human signs. We need a published whitepaper on this with citations to existing AI-disclosure rulings, ready for any underwriter or board to read. Also get an E&O carrier (Allen Insurance, Hartford) to *bless* Inspectr explicitly — that's gold for the inspector pitch.
+**Mitigation:** Our "inspector approves every finding" architecture is the legal answer. AI drafts, human signs. We need a published whitepaper on this with citations to existing AI-disclosure rulings, ready for any underwriter or board to read. Also get an E&O carrier (Allen Insurance, Hartford) to *bless* Lookover explicitly — that's gold for the inspector pitch.
 
 ### R2 — Incumbent ships comparable AI before we hit escape velocity (high impact, medium probability)
 
@@ -248,7 +248,7 @@ Things I'm guessing on right now, that need real input or data:
 Direct implication for the codebase:
 
 - **The inspector-approval architecture is correct.** Keep building it. It's the legal moat *and* the data flywheel.
-- **The client-facing report (PDF + share link) deserves real design love.** It's the marketing surface — every buyer who sees an Inspectr report is a potential referral to their next inspector friend or family member's inspector.
+- **The client-facing report (PDF + share link) deserves real design love.** It's the marketing surface — every buyer who sees an Lookover report is a potential referral to their next inspector friend or family member's inspector.
 - **The repair-estimate add-on is a v2 plumbing decision now.** Build the data model so we can layer it later without a migration. The findings table is already there.
 - **Voice notes are non-negotiable.** The mobile voice walkthrough is *the* differentiated demo moment. Polish it.
 - **The brand should lean into "AI-native" but not "AI hype."** Inspectors hate hype. "Talk through the inspection. We draft the report. You approve every word." That's the line.

@@ -1,8 +1,8 @@
-# Inspectr
+# Lookover
 
 AI-assisted home inspection reports for residential inspectors. Walk the property, take photos, talk through what you see — get a finished, branded report drafted before you're back to your truck.
 
-> **Working name.** "Inspectr" is a placeholder.
+> **Domain:** [uselookover.com](https://uselookover.com). The repo directory is still named `inspectr` (the original working name) — kept for git history and package stability.
 
 ---
 

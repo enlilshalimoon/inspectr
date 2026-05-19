@@ -1,4 +1,4 @@
-# Inspectr AI benchmark
+# Lookover AI benchmark
 
 Calibration test set for the finding-generation prompt. Built from **InterNACHI Standards of Practice (§3.1–3.10)**, the published baseline most U.S. home inspectors are trained to.
 

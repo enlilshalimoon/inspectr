@@ -21,7 +21,7 @@ export default async function HomePage() {
     <div className="min-h-dvh flex flex-col bg-slate-50">
       <header className="px-6 py-5 flex items-center justify-between">
         <Link href="/" className="text-lg font-semibold text-slate-900">
-          Inspectr
+          Lookover
         </Link>
         <nav className="flex items-center gap-2 text-sm">
           <Link

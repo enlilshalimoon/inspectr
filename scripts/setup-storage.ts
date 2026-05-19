@@ -1,4 +1,4 @@
-// Creates the two private storage buckets Inspectr needs.
+// Creates the two private storage buckets Lookover needs.
 // Run with: npx tsx -r dotenv/config scripts/setup-storage.ts dotenv_config_path=.env.local
 
 import { createClient } from "@supabase/supabase-js";

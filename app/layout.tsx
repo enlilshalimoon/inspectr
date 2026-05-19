@@ -7,7 +7,7 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const APP_NAME = "Inspectr";
+const APP_NAME = "Lookover";
 
 export const metadata: Metadata = {
   title: {
