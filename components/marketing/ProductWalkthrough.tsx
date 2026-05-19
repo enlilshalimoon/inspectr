@@ -13,8 +13,8 @@ const blocks: Block[] = [
     title: "Capture",
     body: "One thumb, one hand. Photos and voice in the same screen. Works offline; syncs when you're back in service. No login between properties — you stay signed in for the day.",
     image: {
-      src: "/marketing/phone-capture-finding.webp",
-      alt: "Mobile capture screen with water heater photo and orange voice waveform",
+      src: "/marketing/phone-utility-room.webp",
+      alt: "Inspector's hand holding a phone showing the Lookover capture screen, with the actual water heater and copper plumbing visible in a basement utility room behind",
     },
   },
   {
@@ -22,8 +22,8 @@ const blocks: Block[] = [
     title: "Drafts arrive",
     body: "By the time you sit down, Lookover has drafted findings for everything you captured. Each one ties back to the photo and voice note it came from, so you always know what informed it.",
     image: {
-      src: "/marketing/laptop-review.webp",
-      alt: "Desktop review showing list of drafted findings ready for inspector review",
+      src: "/marketing/phone-share-report.webp",
+      alt: "Phone showing a drafted inspection finding card with severity badge — the moment the AI draft becomes visible to the inspector",
     },
   },
   {
@@ -31,8 +31,8 @@ const blocks: Block[] = [
     title: "Review and edit",
     body: "Inline editing. Severity selector (Maintenance / Minor / Major / Safety). Bulk-approve the routine items. Add or swap photos. Reorder findings into your standard report sections.",
     image: {
-      src: "/marketing/laptop-review.webp",
-      alt: "Desktop review interface with severity dropdown open on a Major finding",
+      src: "/marketing/laptop-review-hand.webp",
+      alt: "Desktop review interface — hand on the trackpad mid-edit, severity dropdown open on a Major roof flashing finding",
     },
   },
   {
@@ -40,8 +40,8 @@ const blocks: Block[] = [
     title: "Finalize and send",
     body: "One click produces a branded PDF with your logo, license number, and disclaimer — and a mobile-friendly share link your client can open from the email. Buyer's agent gets the same link. No portal, no login, no friction.",
     image: {
-      src: "/marketing/phone-share-report.webp",
-      alt: "Phone showing the buyer-facing inspection report with a Major finding card",
+      src: "/marketing/pdf-report-page.webp",
+      alt: "Branded Lookover inspection report PDF, first page — header with inspector name and license, property summary, and a Roof System finding card",
     },
   },
 ];

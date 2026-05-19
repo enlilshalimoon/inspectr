@@ -72,8 +72,8 @@ const steps: Step[] = [
       </>
     ),
     image: {
-      src: "/marketing/laptop-review.webp",
-      alt: "Desktop review interface showing a list of inspection findings with severity dropdown open",
+      src: "/marketing/laptop-review-hand.webp",
+      alt: "Desktop review interface — inspector's hand on the trackpad mid-edit with the severity dropdown open on a Major finding",
     },
   },
 ];
