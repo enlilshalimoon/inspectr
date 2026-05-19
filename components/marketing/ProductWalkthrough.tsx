@@ -1,8 +1,10 @@
+import Image from "next/image";
+
 type Block = {
   eyebrow: string;
   title: string;
   body: string;
-  visualLabel: string;
+  image: { src: string; alt: string };
 };
 
 const blocks: Block[] = [
@@ -10,25 +12,37 @@ const blocks: Block[] = [
     eyebrow: "On the property",
     title: "Capture",
     body: "One thumb, one hand. Photos and voice in the same screen. Works offline; syncs when you're back in service. No login between properties — you stay signed in for the day.",
-    visualLabel: "Mobile capture screen with offline indicator",
+    image: {
+      src: "/marketing/phone-capture-finding.webp",
+      alt: "Mobile capture screen with water heater photo and orange voice waveform",
+    },
   },
   {
     eyebrow: "In the truck",
     title: "Drafts arrive",
     body: "By the time you sit down, Lookover has drafted findings for everything you captured. Each one ties back to the photo and voice note it came from, so you always know what informed it.",
-    visualLabel: "List of generated findings on phone or tablet",
+    image: {
+      src: "/marketing/laptop-review.webp",
+      alt: "Desktop review showing list of drafted findings ready for inspector review",
+    },
   },
   {
     eyebrow: "At your desk",
     title: "Review and edit",
     body: "Inline editing. Severity selector (Maintenance / Minor / Major / Safety). Bulk-approve the routine items. Add or swap photos. Reorder findings into your standard report sections.",
-    visualLabel: "Desktop review UI mid-edit",
+    image: {
+      src: "/marketing/laptop-review.webp",
+      alt: "Desktop review interface with severity dropdown open on a Major finding",
+    },
   },
   {
     eyebrow: "To the client",
     title: "Finalize and send",
     body: "One click produces a branded PDF with your logo, license number, and disclaimer — and a mobile-friendly share link your client can open from the email. Buyer's agent gets the same link. No portal, no login, no friction.",
-    visualLabel: "Public report view at uselookover.com/report/abc12345",
+    image: {
+      src: "/marketing/phone-share-report.webp",
+      alt: "Phone showing the buyer-facing inspection report with a Major finding card",
+    },
   },
 ];
 
@@ -53,8 +67,14 @@ export function ProductWalkthrough() {
                 i % 2 === 1 ? "lg:[&>div:first-child]:order-2" : ""
               }`}
             >
-              <div className="aspect-[4/3] w-full rounded-2xl bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-center px-8">
-                <span className="text-sm text-slate-500">{block.visualLabel}</span>
+              <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden ring-1 ring-slate-200 bg-slate-100">
+                <Image
+                  src={block.image.src}
+                  alt={block.image.alt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
+                />
               </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium uppercase tracking-wider text-slate-500">

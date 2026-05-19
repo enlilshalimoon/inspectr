@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function ClientDeliverable() {
   return (
     <section className="bg-white border-b border-slate-200">
@@ -23,13 +25,15 @@ export function ClientDeliverable() {
         <div className="grid sm:grid-cols-2 gap-6">
           <Deliverable
             label="Branded PDF"
-            caption="First page of the report — logo, license, severity-coded findings"
-            aspect="aspect-[8.5/11]"
+            src="/marketing/pdf-report-page.webp"
+            alt="First page of a Lookover inspection report PDF: branded header with inspector name and license, property summary card, and a Roof System finding with severity badge and recommended action"
+            aspect="aspect-[3/4]"
           />
           <Deliverable
             label="Mobile share link"
-            caption="uselookover.com/report/abc12345 — opens in the buyer's phone"
-            aspect="aspect-[9/16]"
+            src="/marketing/phone-share-report.webp"
+            alt="Phone displaying the buyer-facing inspection report at uselookover.com/report — showing a roof flashing finding with Major severity"
+            aspect="aspect-[3/4]"
           />
         </div>
       </div>
@@ -39,20 +43,28 @@ export function ClientDeliverable() {
 
 function Deliverable({
   label,
-  caption,
+  src,
+  alt,
   aspect,
 }: {
   label: string;
-  caption: string;
+  src: string;
+  alt: string;
   aspect: string;
 }) {
   return (
     <div className="bg-slate-50 rounded-2xl p-6 ring-1 ring-slate-200">
       <p className="text-sm font-medium text-slate-900 mb-3">{label}</p>
       <div
-        className={`${aspect} max-h-[520px] mx-auto rounded-lg bg-white ring-1 ring-slate-200 flex items-center justify-center text-center px-6`}
+        className={`relative ${aspect} max-h-[520px] mx-auto rounded-lg overflow-hidden ring-1 ring-slate-200 bg-white`}
       >
-        <span className="text-xs text-slate-500">{caption}</span>
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes="(max-width: 640px) 100vw, 50vw"
+          className="object-cover"
+        />
       </div>
     </div>
   );

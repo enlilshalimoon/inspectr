@@ -448,20 +448,19 @@ Name: **Lookover**. Domain: **uselookover.com** (purchased via Namecheap).
 
 Do these in order. The ones marked *(account)* need you logged into the relevant dashboard — I can't do them for you.
 
-### Step 1 — Point uselookover.com at Vercel *(account: Namecheap + Vercel)*
+### Step 1 — Point uselookover.com at Vercel *(account: Namecheap + Vercel)* ✅ DONE
 
-In **Vercel** (project → Settings → Domains):
-1. Click **Add Domain**, enter `uselookover.com`
-2. Also add `www.uselookover.com` (Vercel will offer to set up a redirect — accept it)
-3. Vercel will show you DNS records to add — usually an `A` record for the apex (`@` → `76.76.21.21`) and a `CNAME` for `www` (`www` → `cname.vercel-dns.com`). Copy those exact values.
+`uselookover.com` is live and pointing at the Vercel project. The Vercel-canonical setup ended up as:
+- `www.uselookover.com` — the canonical production domain
+- `uselookover.com` (apex) — 308-redirects to `www.uselookover.com`
 
-In **Namecheap** (Domain List → Manage → Advanced DNS):
-1. Delete the default "Parking Page" CNAME record if it's there
-2. Add the `A` record Vercel showed you (Host: `@`, Value: the IP from Vercel)
-3. Add the `CNAME` record (Host: `www`, Value: `cname.vercel-dns.com`)
-4. Save
+DNS records added in Namecheap:
+- `A` `@` → `216.198.79.1`
+- `CNAME` `www` → `7af18cd31c45b048.vercel-dns-017.com.`
 
-DNS propagation usually completes in 5–30 minutes. Vercel will auto-issue an SSL cert once it sees the records.
+Vercel auto-issued the SSL cert. If anything looks off, check the Domains tab in Vercel — both rows should show "Valid Configuration" with a blue checkmark.
+
+> Reference for marketing material: when writing the canonical URL anywhere (PDFs, emails, business cards, social bios), use **`uselookover.com`** for human-facing display (it'll redirect to www, which is fine). When wiring up redirects or canonical tags in code, the *production* URL is `https://www.uselookover.com`.
 
 ### Step 2 — Update Vercel env var *(account: Vercel)*
 

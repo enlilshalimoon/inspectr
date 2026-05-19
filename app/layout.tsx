@@ -8,7 +8,8 @@ const geistSans = Geist({
 });
 
 const APP_NAME = "Lookover";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://uselookover.com";
+// Vercel canonical is www; apex 308-redirects to www.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.uselookover.com";
 const APP_DESCRIPTION =
   "Talk through the inspection. Get the report drafted before you're back to your truck. AI-assisted reports for residential home inspectors — you approve every finding.";
 

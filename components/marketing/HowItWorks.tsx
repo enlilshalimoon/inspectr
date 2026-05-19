@@ -1,9 +1,11 @@
+import Image from "next/image";
+
 type Step = {
   number: string;
   title: string;
   headline: string;
   body: React.ReactNode;
-  visualLabel: string;
+  image: { src: string; alt: string; objectPosition?: string };
 };
 
 const steps: Step[] = [
@@ -25,7 +27,10 @@ const steps: Step[] = [
         </p>
       </>
     ),
-    visualLabel: "Mobile capture screen with photo + waveform",
+    image: {
+      src: "/marketing/phone-capture-finding.webp",
+      alt: "Mobile capture screen showing a water heater photo, voice note waveform, and AI-drafted finding card",
+    },
   },
   {
     number: "2",
@@ -44,7 +49,10 @@ const steps: Step[] = [
         </p>
       </>
     ),
-    visualLabel: "Generated finding card with severity rating",
+    image: {
+      src: "/marketing/phone-share-report.webp",
+      alt: "Phone displaying a drafted inspection finding card with severity badge and recommended action",
+    },
   },
   {
     number: "3",
@@ -63,7 +71,10 @@ const steps: Step[] = [
         </p>
       </>
     ),
-    visualLabel: "Desktop review interface with one finding being edited",
+    image: {
+      src: "/marketing/laptop-review.webp",
+      alt: "Desktop review interface showing a list of inspection findings with severity dropdown open",
+    },
   },
 ];
 
@@ -98,8 +109,19 @@ export function HowItWorks() {
                 {step.headline}
               </h3>
               <div className="space-y-3 text-slate-600 flex-1">{step.body}</div>
-              <div className="mt-6 aspect-[4/3] rounded-lg bg-slate-100 flex items-center justify-center text-center px-4">
-                <span className="text-xs text-slate-500">{step.visualLabel}</span>
+              <div className="mt-6 relative aspect-[4/3] rounded-lg overflow-hidden ring-1 ring-slate-200 bg-slate-100">
+                <Image
+                  src={step.image.src}
+                  alt={step.image.alt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                  style={
+                    step.image.objectPosition
+                      ? { objectPosition: step.image.objectPosition }
+                      : undefined
+                  }
+                />
               </div>
             </article>
           ))}
