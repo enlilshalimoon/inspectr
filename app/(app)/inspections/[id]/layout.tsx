@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { InspectionTabs } from "./inspection-tabs";
 
 type Props = {
   children: React.ReactNode;
@@ -46,24 +47,9 @@ export default async function InspectionLayout({ children, params }: Props) {
             {inspection.inspection_date ?? ""}
           </p>
         </div>
-        <nav className="flex gap-1 text-sm border-b border-slate-200">
-          <TabLink href={`/inspections/${id}/capture`}>Capture</TabLink>
-          <TabLink href={`/inspections/${id}/review`}>Review</TabLink>
-          <TabLink href={`/inspections/${id}/finalize`}>Finalize</TabLink>
-        </nav>
+        <InspectionTabs inspectionId={id} />
       </header>
       {children}
     </div>
-  );
-}
-
-function TabLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="px-3 py-2 text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 -mb-px"
-    >
-      {children}
-    </Link>
   );
 }

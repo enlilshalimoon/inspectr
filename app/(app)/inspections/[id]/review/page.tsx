@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,11 @@ type Props = { params: Promise<{ id: string }> };
 export default async function ReviewPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) notFound();
 
   const { data: inspection } = await supabase
     .from("inspections")
@@ -28,7 +34,9 @@ export default async function ReviewPage({ params }: Props) {
 
   const { data: findings } = await supabase
     .from("findings")
-    .select("id, section_id, photo_id, severity, title, description, recommended_action, is_approved")
+    .select(
+      "id, inspection_id, section_id, photo_id, severity, title, description, recommended_action, is_approved, inspector_edited, ai_confidence, created_at, updated_at",
+    )
     .eq("inspection_id", id);
 
   const { data: photoRows } = await supabase
@@ -66,9 +74,68 @@ export default async function ReviewPage({ params }: Props) {
 
   const approvedCount = (findings ?? []).filter((f) => f.is_approved).length;
   const totalCount = findings?.length ?? 0;
+  const remaining = totalCount - approvedCount;
+  const pct = totalCount === 0 ? 0 : Math.round((approvedCount / totalCount) * 100);
+  const allApproved = totalCount > 0 && remaining === 0;
 
   return (
     <div className="space-y-6">
+      {/* Approval-progress banner — sticky so it stays visible while scrolling */}
+      {totalCount > 0 && (
+        <div
+          data-approval-banner
+          className="sticky top-2 z-20"
+        >
+          <Card
+            className={`shadow-sm border-2 ${
+              allApproved
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-amber-300 bg-amber-50"
+            }`}
+          >
+            <CardContent className="p-3 sm:p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 min-w-0">
+                  {allApproved ? (
+                    <span className="text-sm font-medium text-emerald-900">
+                      All {totalCount} findings approved — ready to finalize
+                    </span>
+                  ) : (
+                    <span className="text-sm font-medium text-amber-900">
+                      {remaining} finding{remaining === 1 ? "" : "s"} still need your approval
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-600 shrink-0">
+                    ({approvedCount} / {totalCount})
+                  </span>
+                </div>
+                {allApproved ? (
+                  <Link
+                    href={`/inspections/${id}/finalize`}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-700 text-white hover:bg-emerald-800"
+                  >
+                    Go to finalize →
+                  </Link>
+                ) : (
+                  <span className="text-xs text-amber-900">
+                    Review the AI draft, edit if needed, tap{" "}
+                    <span className="font-medium">Approve</span> on each one.
+                  </span>
+                )}
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/60">
+                <div
+                  className={`h-full transition-all ${
+                    allApproved ? "bg-emerald-500" : "bg-amber-500"
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-5 flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
           <Stat label="Photos" value={String(photoRows?.length ?? 0)} />
@@ -135,6 +202,7 @@ export default async function ReviewPage({ params }: Props) {
                       key={finding.id}
                       finding={finding}
                       inspectionId={id}
+                      userId={user.id}
                     />
                   ))}
                 </div>
