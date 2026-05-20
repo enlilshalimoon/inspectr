@@ -133,7 +133,10 @@ export async function sendReportEmail(
 
   // Lazy-load resend so the route still builds without the key set
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "reports@inspectr.local";
+  // Production should set RESEND_FROM_EMAIL via Vercel env (e.g. reports@uselookover.com)
+  // once the Resend domain verification completes. Fallback is here only so the route
+  // builds cleanly in dev / on first deploy.
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "reports@uselookover.com";
   if (!apiKey) return { ok: false, error: "Email service not configured (RESEND_API_KEY missing)." };
   const { Resend } = await import("resend");
   const resend = new Resend(apiKey);
