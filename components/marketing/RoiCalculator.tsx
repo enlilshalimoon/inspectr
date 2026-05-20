@@ -3,36 +3,62 @@
 import { useState, useMemo } from "react";
 
 const SUBSCRIPTION_MONTHLY = 129;
+// What Lookover's workflow actually takes: review & approve the drafts. ~30 minutes
+// per report on average. This is our value claim — the customer enters their current
+// time and the calculator shows the delta.
+const LOOKOVER_HOURS_PER_REPORT = 0.5;
 
 const formatCurrency = (value: number) =>
   value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 const formatHours = (value: number) =>
-  value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  value.toLocaleString("en-US", { maximumFractionDigits: 1 });
 
 export function RoiCalculator() {
   const [inspectionsPerMonth, setInspectionsPerMonth] = useState(20);
-  const [hoursSavedPerInspection, setHoursSavedPerInspection] = useState(2.5);
+  const [hoursPerReportToday, setHoursPerReportToday] = useState(3);
   const [hourlyRate, setHourlyRate] = useState(50);
 
-  const { hoursSaved, dollarsSaved, netBenefit, multiplier } = useMemo(() => {
-    const hoursSaved = inspectionsPerMonth * hoursSavedPerInspection;
-    const dollarsSaved = hoursSaved * hourlyRate;
-    const netBenefit = dollarsSaved - SUBSCRIPTION_MONTHLY;
-    const multiplier = dollarsSaved / SUBSCRIPTION_MONTHLY;
-    return { hoursSaved, dollarsSaved, netBenefit, multiplier };
-  }, [inspectionsPerMonth, hoursSavedPerInspection, hourlyRate]);
+  const {
+    hoursSavedPerInspection,
+    hoursSavedPerMonth,
+    dollarsSavedPerMonth,
+    netBenefit,
+    multiplier,
+  } = useMemo(() => {
+    const hoursSavedPerInspection = Math.max(
+      0,
+      hoursPerReportToday - LOOKOVER_HOURS_PER_REPORT,
+    );
+    const hoursSavedPerMonth = inspectionsPerMonth * hoursSavedPerInspection;
+    const dollarsSavedPerMonth = hoursSavedPerMonth * hourlyRate;
+    const netBenefit = dollarsSavedPerMonth - SUBSCRIPTION_MONTHLY;
+    const multiplier = dollarsSavedPerMonth / SUBSCRIPTION_MONTHLY;
+    return {
+      hoursSavedPerInspection,
+      hoursSavedPerMonth,
+      dollarsSavedPerMonth,
+      netBenefit,
+      multiplier,
+    };
+  }, [inspectionsPerMonth, hoursPerReportToday, hourlyRate]);
 
   return (
     <section className="bg-white border-b border-slate-200">
       <div className="mx-auto max-w-5xl px-6 py-20">
-        <div className="max-w-3xl mb-10">
+        <div className="max-w-3xl mb-10 space-y-3">
           <p className="text-sm font-medium uppercase tracking-wider text-orange-600">
             ROI calculator
           </p>
-          <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900">
-            What&apos;s your report-writing hour worth?
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900">
+            How many hours would Lookover give you back?
           </h2>
+          <p className="text-lg text-slate-600">
+            Enter what your week looks like today. Lookover cuts report writing from a few
+            hours of typing down to about{" "}
+            <span className="font-medium text-slate-900">30 minutes of reviewing</span> —
+            you approve drafts instead of building them from scratch.
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-5 gap-8 bg-slate-50 rounded-2xl ring-1 ring-slate-200 p-6 sm:p-10">
@@ -47,61 +73,87 @@ export function RoiCalculator() {
               display={inspectionsPerMonth.toString()}
             />
             <Slider
-              label="Hours saved per inspection"
-              value={hoursSavedPerInspection}
+              label="Hours per report today"
+              hint="Your current report-writing time, on average"
+              value={hoursPerReportToday}
               min={1}
-              max={4}
+              max={6}
               step={0.5}
-              onChange={setHoursSavedPerInspection}
-              display={hoursSavedPerInspection.toString()}
+              onChange={setHoursPerReportToday}
+              display={`${hoursPerReportToday} hrs`}
             />
             <Slider
               label="Your hourly rate"
+              hint="What your time is worth — billable or opportunity cost"
               value={hourlyRate}
               min={25}
-              max={150}
+              max={200}
               step={5}
               onChange={setHourlyRate}
               display={`$${hourlyRate}`}
             />
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-xl ring-1 ring-slate-200 p-6 flex flex-col justify-center space-y-5">
-            <Result
-              label="You'd save"
-              value={`~${formatHours(hoursSaved)} hours`}
-              sub="per month"
-            />
-            <Result
-              label="That's worth"
-              value={formatCurrency(dollarsSaved)}
-              sub="per month"
-            />
-            <Result
-              label="Lookover costs"
-              value={formatCurrency(SUBSCRIPTION_MONTHLY)}
-              sub="per month"
-            />
-            <div className="border-t border-slate-200 pt-5 space-y-1">
+          <div className="lg:col-span-2 bg-white rounded-xl ring-1 ring-slate-200 p-6 flex flex-col gap-5">
+            <div>
+              <p className="text-sm text-slate-500">Per inspection</p>
+              <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+                {formatHours(hoursSavedPerInspection)} hrs saved
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {formatHours(hoursPerReportToday)} hrs today → ~30 min with Lookover
+              </p>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4">
+              <p className="text-sm text-slate-500">Time back per month</p>
+              <p className="text-3xl font-semibold text-slate-900 tabular-nums">
+                {formatHours(hoursSavedPerMonth)} hours
+              </p>
+              <p className="text-sm text-slate-600 mt-1">
+                worth{" "}
+                <span className="font-medium text-slate-900 tabular-nums">
+                  {formatCurrency(dollarsSavedPerMonth)}
+                </span>
+              </p>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4 flex items-baseline justify-between text-sm">
+              <span className="text-slate-600">Lookover subscription</span>
+              <span className="font-medium text-slate-900 tabular-nums">
+                −{formatCurrency(SUBSCRIPTION_MONTHLY)}
+              </span>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4">
               <p className="text-sm text-slate-500">Net benefit</p>
-              <p className="text-3xl font-semibold text-slate-900">
+              <p className="text-3xl font-semibold text-slate-900 tabular-nums">
                 {formatCurrency(netBenefit)}
                 <span className="text-base font-normal text-slate-500"> / mo</span>
               </p>
-              <p className="text-sm font-medium text-orange-600">
-                {multiplier.toFixed(0)}× return
-              </p>
+              {multiplier >= 2 && (
+                <p className="text-sm font-medium text-orange-600 mt-1">
+                  {multiplier.toFixed(0)}× return
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        <p className="mt-8 text-base text-slate-600 max-w-3xl">
-          Or: every month you don&apos;t switch, you&apos;re paying yourself{" "}
-          <span className="font-medium text-slate-900">
-            {formatCurrency(netBenefit)}
-          </span>{" "}
-          to keep typing.
-        </p>
+        {netBenefit > 0 ? (
+          <p className="mt-8 text-base text-slate-600 max-w-3xl">
+            Or: every month you don&apos;t switch, you&apos;re paying yourself{" "}
+            <span className="font-medium text-slate-900 tabular-nums">
+              {formatCurrency(netBenefit)}
+            </span>{" "}
+            to keep typing.
+          </p>
+        ) : (
+          <p className="mt-8 text-base text-slate-600 max-w-3xl">
+            At this volume, Lookover doesn&apos;t pay off yet — the math works best for
+            inspectors doing 10+ reports a month or charging $40/hr and up.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -109,6 +161,7 @@ export function RoiCalculator() {
 
 function Slider({
   label,
+  hint,
   value,
   min,
   max,
@@ -117,6 +170,7 @@ function Slider({
   display,
 }: {
   label: string;
+  hint?: string;
   value: number;
   min: number;
   max: number;
@@ -126,12 +180,13 @@ function Slider({
 }) {
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-baseline justify-between mb-1">
         <label className="text-sm font-medium text-slate-700">{label}</label>
         <span className="text-2xl font-semibold text-slate-900 tabular-nums">
           {display}
         </span>
       </div>
+      {hint && <p className="text-xs text-slate-500 mb-2">{hint}</p>}
       <input
         type="range"
         min={min}
@@ -146,18 +201,6 @@ function Slider({
         <span>{min}</span>
         <span>{max}</span>
       </div>
-    </div>
-  );
-}
-
-function Result({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div>
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="text-2xl font-semibold text-slate-900 tabular-nums">
-        {value}{" "}
-        <span className="text-sm font-normal text-slate-500">{sub}</span>
-      </p>
     </div>
   );
 }
