@@ -25,6 +25,26 @@ declare global {
   }
 }
 
+/**
+ * Fire a Meta Pixel standard or custom event.
+ *
+ * Safe to call from anywhere — no-op if the pixel isn't loaded (excluded route,
+ * env var unset, ad blocker, etc.). Pass standard event names ("Lead",
+ * "CompleteRegistration", "Subscribe", "Purchase", "ViewContent") to get
+ * Meta-recognized conversions; custom names work but get less algorithmic lift.
+ *
+ * Generates an `eventID` so that when we add CAPI later, the same event sent
+ * from the server can be deduplicated against the client-side fire.
+ */
+export function trackEvent(
+  eventName: string,
+  params?: Record<string, unknown>,
+): void {
+  if (typeof window === "undefined" || !window.fbq) return;
+  const eventId = `${eventName}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  window.fbq("track", eventName, params ?? {}, { eventID: eventId });
+}
+
 const EXCLUDED_PREFIXES = [
   "/inspections",
   "/settings",

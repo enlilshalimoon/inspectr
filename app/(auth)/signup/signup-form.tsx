@@ -1,14 +1,33 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormMessage } from "@/components/ui/form-message";
 import { signupAction, type AuthState } from "@/lib/auth/actions";
+import { trackEvent } from "@/components/MetaPixel";
 
 export function SignupForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(signupAction, null);
+
+  // Fire Meta Pixel "Lead" when the signup form mounts — intent signal for ad
+  // optimization. Fire "CompleteRegistration" when the action returns ok=true
+  // (email-confirm flow). The redirect flow (immediate session) bypasses this
+  // return path; future enhancement is to fire CompleteRegistration on the
+  // /onboarding page when arrived via signup, but the email-confirm path is
+  // dominant in production and covers the conversion event we care about.
+  useEffect(() => {
+    trackEvent("Lead");
+  }, []);
+
+  const completeReportedRef = useRef(false);
+  useEffect(() => {
+    if (state?.ok && !completeReportedRef.current) {
+      completeReportedRef.current = true;
+      trackEvent("CompleteRegistration");
+    }
+  }, [state]);
 
   return (
     <form action={action} className="space-y-4">
