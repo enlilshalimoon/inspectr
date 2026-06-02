@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import { MetaPixel } from "@/components/MetaPixel";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,6 +11,9 @@ const geistSans = Geist({
 const APP_NAME = "Lookover";
 // Vercel canonical is www; apex 308-redirects to www.
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.uselookover.com";
+// Meta Pixel ID — set in Vercel env vars. Component is a no-op when unset (clean
+// dev/preview environments). See components/MetaPixel.tsx for which routes load it.
+const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 const APP_DESCRIPTION =
   "Talk through the inspection. Get the report drafted before you're back to your truck. AI-assisted reports for residential home inspectors — you approve every finding.";
 
@@ -58,7 +62,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-white text-slate-900">{children}</body>
+      <body className="min-h-full flex flex-col bg-white text-slate-900">
+        {children}
+        {META_PIXEL_ID ? <MetaPixel pixelId={META_PIXEL_ID} /> : null}
+      </body>
     </html>
   );
 }

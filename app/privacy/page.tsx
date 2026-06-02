@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="May 19, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="May 21, 2026">
       <p>
         This policy explains what data Lookover collects, how we use it, and your
         rights. Short version: we collect only what we need to run the service, we
@@ -38,6 +38,13 @@ export default function PrivacyPage() {
         <li>Standard web logs (IP address, browser type, pages visited)</li>
         <li>Authentication cookies (required to keep you signed in)</li>
         <li>Billing metadata from Stripe (last 4 of card, billing address — never full card numbers)</li>
+        <li>
+          On our public marketing pages only (landing page, sample report, pricing,
+          signup, legal pages): Meta (Facebook) Pixel data — IP address, browser type,
+          and the marketing page you visited. The Meta Pixel does NOT run when
+          you&apos;re signed in to your account, and does NOT run on inspection-report
+          viewer pages.
+        </li>
       </ul>
 
       <h2>How we use it</h2>
@@ -82,10 +89,20 @@ export default function PrivacyPage() {
         <li>
           <strong>Stripe</strong> — payment processing
         </li>
+        <li>
+          <strong>Meta (Facebook)</strong> — advertising attribution pixel on our public
+          marketing pages only. Meta receives standard browser data (IP, browser type,
+          page URL) when you visit a marketing page. Meta does NOT receive any
+          inspection data, customer data, photos, voice notes, reports, or anything
+          from inside your account.
+        </li>
       </ul>
       <p>
-        We do not sell your data. We do not share it for advertising. We will only
-        disclose data to law enforcement when we are legally compelled by valid process.
+        We do not sell your data. We do not share inspection data, customer data, or
+        account contents for advertising. The Meta Pixel on our marketing pages is used
+        solely to measure which Facebook ads drive signups; it is never active when
+        you&apos;re signed in to your account. We will only disclose data to law
+        enforcement when we are legally compelled by valid process.
       </p>
 
       <h2>Your rights</h2>
@@ -101,10 +118,30 @@ export default function PrivacyPage() {
         <li>Opt out of non-essential communications from account settings</li>
       </ul>
 
-      <h2>Cookies</h2>
+      <h2>Cookies and tracking technologies</h2>
       <p>
-        We use cookies for authentication and session management only. No tracking
-        pixels, no third-party advertising cookies, no cross-site tracking.
+        <strong>Inside the app (when you&apos;re signed in):</strong> We use cookies for
+        authentication and session management only. No advertising trackers, no
+        third-party tracking pixels, no cross-site tracking.
+      </p>
+      <p>
+        <strong>On our public marketing pages:</strong> We use the Meta (Facebook) Pixel
+        to measure the effectiveness of our Facebook advertising. The pixel loads on the
+        landing page, sample report, pricing, signup, and legal pages, and sends
+        standard browser data (IP, browser type, page URL) to Meta. It does NOT load on
+        authenticated app pages or on inspection-report viewer pages.
+      </p>
+      <p>
+        You can opt out of Meta&apos;s advertising tracking via your{" "}
+        <a
+          href="https://www.facebook.com/ads/preferences"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Facebook ad preferences
+        </a>{" "}
+        or by enabling browser-level tracking protection (e.g., Brave Shields, Firefox
+        Enhanced Tracking Protection, or a content blocker).
       </p>
 
       <h2>Data retention</h2>
