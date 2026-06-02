@@ -1,6 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Pages that must be reachable without an auth session. Anything not listed here
+// (and not matching a PUBLIC_PREFIXES entry) gets redirected to /login.
+//
+// Marketing pages — landing CTA, sample report, and the footer legal pages — are
+// linked from outreach (TIJ posts, cold emails, future ads, FB groups). They MUST
+// be public; gating them silently kills conversion because every external click
+// hits a login wall and bounces.
 const PUBLIC_PATHS = [
   "/",
   "/login",
@@ -8,6 +15,12 @@ const PUBLIC_PATHS = [
   "/reset-password",
   "/auth/callback",
   "/auth/confirm",
+  // Marketing / informational pages — public by design.
+  "/sample",
+  "/terms",
+  "/privacy",
+  "/data-export",
+  "/e-and-o",
 ];
 
 const PUBLIC_PREFIXES = ["/report/", "/api/stripe/webhook", "/_next", "/icons", "/favicon"];
