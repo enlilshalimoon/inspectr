@@ -48,6 +48,13 @@ export const metadata: Metadata = {
     description: APP_DESCRIPTION,
     images: ["/og.png"],
   },
+  // Domain ownership verification for Meta Business — required to attribute
+  // conversion events to ads, configure Aggregated Event Measurement, and run
+  // ads from the verified domain. Token issued by Meta Business → Settings →
+  // Brand Safety → Domains.
+  other: {
+    "facebook-domain-verification": "gjbe4decjp5qrv85xr9pgm0v44fhrl",
+  },
 };
 
 export const viewport: Viewport = {
