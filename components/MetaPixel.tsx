@@ -28,21 +28,37 @@ declare global {
 /**
  * Fire a Meta Pixel standard or custom event.
  *
- * Safe to call from anywhere — no-op if the pixel isn't loaded (excluded route,
- * env var unset, ad blocker, etc.). Pass standard event names ("Lead",
+ * Safe to call from anywhere. Pass standard event names ("Lead",
  * "CompleteRegistration", "Subscribe", "Purchase", "ViewContent") to get
  * Meta-recognized conversions; custom names work but get less algorithmic lift.
  *
  * Generates an `eventID` so that when we add CAPI later, the same event sent
  * from the server can be deduplicated against the client-side fire.
+ *
+ * IMPORTANT timing note: the pixel <Script> loads with strategy="afterInteractive",
+ * which means React useEffect calls fire BEFORE window.fbq is defined on the
+ * very first render after navigation. We poll briefly (up to ~3s) so events
+ * dispatched immediately on mount don't drop on the floor. Excluded routes
+ * (where MetaPixel renders null and fbq is never defined) hit the timeout
+ * and quietly stop — by design.
  */
 export function trackEvent(
   eventName: string,
   params?: Record<string, unknown>,
 ): void {
-  if (typeof window === "undefined" || !window.fbq) return;
+  if (typeof window === "undefined") return;
   const eventId = `${eventName}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  window.fbq("track", eventName, params ?? {}, { eventID: eventId });
+  const fire = (): boolean => {
+    if (!window.fbq) return false;
+    window.fbq("track", eventName, params ?? {}, { eventID: eventId });
+    return true;
+  };
+  if (fire()) return;
+  let attempts = 0;
+  const interval = setInterval(() => {
+    attempts += 1;
+    if (fire() || attempts > 30) clearInterval(interval);
+  }, 100);
 }
 
 const EXCLUDED_PREFIXES = [
