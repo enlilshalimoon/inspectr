@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { sendSystemEmail, welcomeEmail, passwordResetEmail } from "@/lib/email/send";
 
 // ---------------------------------------------------------------------------
 // Shape returned to forms via useActionState.
@@ -85,6 +86,18 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
       .eq("id", data.user.id);
   }
 
+  // Branded welcome email via Resend (best-effort — never block signup on it).
+  // Email confirmation is disabled, so this is a greeting, not a verification gate.
+  const welcome = welcomeEmail({ fullName: parsed.data.fullName, appUrl: origin });
+  await sendSystemEmail({
+    to: parsed.data.email,
+    subject: welcome.subject,
+    html: welcome.html,
+    text: welcome.text,
+  }).catch(() => {
+    /* best-effort: a failed welcome email must not break signup */
+  });
+
   redirect("/onboarding");
 }
 
@@ -141,19 +154,40 @@ export async function resetPasswordAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const supabase = await createClient();
   const origin = await originFromHeaders();
+  const redirectTo = `${origin}/auth/callback?next=/settings/password`;
 
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/callback?next=/settings/password`,
-  });
-
-  // Don't leak whether the email exists.
-  if (error) {
-    // Log internally; still show generic success to the user.
-    console.error("[reset-password] supabase error:", error.message);
+  // Generate the recovery link server-side via the admin API, then deliver it through
+  // our branded Resend pipeline (from noreply@uselookover.com) instead of Supabase's
+  // default @supabase.io mailer. Same secure token as the built-in flow — only the
+  // delivery channel changes. generateLink does NOT send an email itself.
+  try {
+    const admin = createServiceClient();
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: parsed.data.email,
+      options: { redirectTo },
+    });
+    if (error) {
+      // Most common benign case: email doesn't exist. Log, stay generic to the user.
+      console.error("[reset-password] generateLink error:", error.message);
+    } else {
+      const resetUrl = data.properties?.action_link;
+      if (resetUrl) {
+        const email = passwordResetEmail({ resetUrl });
+        await sendSystemEmail({
+          to: parsed.data.email,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[reset-password] unexpected error:", err);
   }
 
+  // Don't leak whether the email exists.
   return {
     ok: true,
     message: "If that email exists, we sent a reset link.",
