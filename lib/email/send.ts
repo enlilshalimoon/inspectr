@@ -51,7 +51,12 @@ export async function sendSystemEmail(args: SendArgs): Promise<{ ok: boolean; er
       subject: args.subject,
       html: args.html,
       text: args.text,
-      replyTo: args.replyTo ?? "hello@uselookover.com",
+      // Reply-to must be a deliverable inbox. uselookover.com receiving is set up
+      // separately (Workspace/forwarding); until then point at a working inbox via env.
+      replyTo:
+        args.replyTo ??
+        process.env.RESEND_SYSTEM_REPLY_TO ??
+        "hello@uselookover.com",
     });
     if (res.error) {
       console.error("[email] resend error:", res.error);
