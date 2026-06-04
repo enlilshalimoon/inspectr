@@ -55,7 +55,8 @@ export default async function AdminPage() {
     signups7d,
     signups30d,
     trialActive,
-    paidActive,
+    payingActive,
+    compedActive,
     onboardedTotal,
     inspectionsTotal,
     inspectionsFinalized,
@@ -66,7 +67,10 @@ export default async function AdminPage() {
     admin.from("users").select("*", { count: "exact", head: true }).gte("created_at", weekAgo),
     admin.from("users").select("*", { count: "exact", head: true }).gte("created_at", monthAgo),
     admin.from("users").select("*", { count: "exact", head: true }).eq("subscription_status", "trial"),
-    admin.from("users").select("*", { count: "exact", head: true }).eq("subscription_status", "active"),
+    // Paying = active subscription backed by a Stripe customer.
+    admin.from("users").select("*", { count: "exact", head: true }).eq("subscription_status", "active").not("stripe_customer_id", "is", null),
+    // Comped = active access with no Stripe customer (free-for-life design partners).
+    admin.from("users").select("*", { count: "exact", head: true }).eq("subscription_status", "active").is("stripe_customer_id", null),
     admin.from("users").select("*", { count: "exact", head: true }).not("onboarding_completed_at", "is", null),
     admin.from("inspections").select("*", { count: "exact", head: true }),
     admin.from("inspections").select("*", { count: "exact", head: true }).not("finalized_at", "is", null),
@@ -115,7 +119,8 @@ export default async function AdminPage() {
           <MetricCard label="Last 7 days" value={signups7d.count ?? 0} />
           <MetricCard label="Last 30 days" value={signups30d.count ?? 0} />
           <MetricCard label="On trial" value={trialActive.count ?? 0} accent="blue" />
-          <MetricCard label="Paid (active)" value={paidActive.count ?? 0} accent="green" />
+          <MetricCard label="Paying" value={payingActive.count ?? 0} accent="green" />
+          <MetricCard label="Comped (design partners)" value={compedActive.count ?? 0} />
           <MetricCard label="Onboarded" value={onboardedTotal.count ?? 0} />
           <MetricCard
             label="Reports finalized"

@@ -1,5 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isEntitled } from "@/lib/billing/entitlement";
+
+// Routes that require entitlement (active trial / subscription / comp).
+const GATED_PREFIXES = ["/inspections"];
 
 // Pages that must be reachable without an auth session. Anything not listed here
 // (and not matching a PUBLIC_PREFIXES entry) gets redirected to /login.
@@ -72,6 +76,24 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/inspections";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // Entitlement gate: the inspection workspace (the part that costs us AI spend)
+  // requires an active trial, an active subscription, or a comp. Lapsed users are
+  // sent to /billing. Account-management routes (/billing, /settings, /onboarding,
+  // /admin) stay reachable so they can actually fix it.
+  if (user && GATED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    const { data: prof } = await supabase
+      .from("users")
+      .select("subscription_status, trial_ends_at, stripe_customer_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (prof && !isEntitled(prof)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/billing";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;
