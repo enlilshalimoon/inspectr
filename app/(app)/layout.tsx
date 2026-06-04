@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutAction } from "@/lib/auth/actions";
+import { isAdmin } from "@/lib/auth/is-admin";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -9,6 +10,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const userIsAdmin = isAdmin(user.email);
 
   const { data: profile } = await supabase
     .from("users")
@@ -27,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <NavLink href="/inspections">Inspections</NavLink>
               <NavLink href="/settings">Settings</NavLink>
               <NavLink href="/billing">Billing</NavLink>
+              {userIsAdmin && <NavLink href="/admin">Admin</NavLink>}
             </nav>
           </div>
           <div className="flex items-center gap-3">
