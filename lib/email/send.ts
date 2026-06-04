@@ -12,6 +12,13 @@
 const FROM_SYSTEM =
   process.env.RESEND_SYSTEM_FROM ?? "Lookover <noreply@uselookover.com>";
 
+// Founder-voice sender for personal beta touches (feedback asks, etc.). Reply-to
+// MUST be a working inbox — uselookover.com needs email forwarding/receiving set up,
+// otherwise replies bounce. Override via env once that inbox exists.
+const FROM_FOUNDER =
+  process.env.RESEND_FOUNDER_FROM ?? "Enlil at Lookover <enlil@uselookover.com>";
+const FOUNDER_REPLY_TO = process.env.FOUNDER_REPLY_TO ?? "enlil@uselookover.com";
+
 const BRAND = {
   navy: "#0f172a",
   cream: "#fef9f3",
@@ -53,6 +60,41 @@ export async function sendSystemEmail(args: SendArgs): Promise<{ ok: boolean; er
     return { ok: true };
   } catch (err) {
     console.error("[email] send failed:", err);
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// Send a personal founder-voice email (plain, no big branded shell — reads like a
+// real person wrote it, not a system). From enlil@, reply-to a real inbox.
+export async function sendFounderEmail(args: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[email] RESEND_API_KEY not set — skipping founder email to", args.to);
+    return { ok: false, error: "email_not_configured" };
+  }
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+    const res = await resend.emails.send({
+      from: FROM_FOUNDER,
+      to: args.to,
+      subject: args.subject,
+      html: args.html,
+      text: args.text,
+      replyTo: FOUNDER_REPLY_TO,
+    });
+    if (res.error) {
+      console.error("[email] founder send error:", res.error);
+      return { ok: false, error: res.error.message };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error("[email] founder send failed:", err);
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
@@ -176,6 +218,58 @@ ${opts.resetUrl}
 
 If you didn't request this, ignore this email — your password won't change.
 — Lookover`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// First-inspection feedback — fires after an inspector finalizes their FIRST report.
+// Deliberately plain (no big branded shell) so it reads as a real person writing,
+// not a system notification. Reply-to-answer; no form. Carries the beta asks from
+// the rollout playbook: honest feedback, what broke, and the 5-min video offer.
+// ---------------------------------------------------------------------------
+export function firstInspectionFeedbackEmail(opts: {
+  firstName?: string | null;
+  propertyLabel?: string | null;
+}) {
+  const name = opts.firstName?.trim() ? opts.firstName.trim().split(" ")[0] : "there";
+  const propRef = opts.propertyLabel?.trim()
+    ? ` on ${escapeHtml(opts.propertyLabel.trim())}`
+    : "";
+  const p = "margin:0 0 14px";
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#ffffff">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1e293b;max-width:540px;margin:0 auto;padding:28px 24px">
+  <p style="${p}">Hey ${escapeHtml(name)},</p>
+  <p style="${p}">Enlil here — I built Lookover. I saw you just finalized your first report${propRef}, so first off: thank you for actually putting it to work on a real job. That means a lot this early.</p>
+  <p style="${p}">I'd really value your honest take. No form — just hit reply and tell me whatever's on your mind. The three I care about most:</p>
+  <p style="${p}">
+    1. What felt slow, broken, or worse than how you write reports today?<br>
+    2. What's missing that you'd need before you'd use it on every inspection?<br>
+    3. Did the drafted findings read right against the SOP — or did you have to fix a lot?
+  </p>
+  <p style="${p}">And if you'd be up for it: a quick 5-minute screen-share or video of your honest reaction would be worth more to me than anything. Totally optional, and there's a free lifetime account in it for you either way as one of the first inspectors on this.</p>
+  <p style="${p}">Reply any time — this comes straight to me.</p>
+  <p style="margin:18px 0 0">— Enlil<br><span style="color:#64748b">Founder, Lookover · uselookover.com</span></p>
+</div></body></html>`;
+  return {
+    subject: "How'd your first Lookover report go?",
+    html,
+    text: `Hey ${name},
+
+Enlil here — I built Lookover. I saw you just finalized your first report${opts.propertyLabel ? ` on ${opts.propertyLabel}` : ""}, so first off: thank you for putting it to work on a real job. That means a lot this early.
+
+I'd really value your honest take. No form — just reply and tell me whatever's on your mind. The three I care about most:
+
+1. What felt slow, broken, or worse than how you write reports today?
+2. What's missing before you'd use it on every inspection?
+3. Did the drafted findings read right against the SOP, or did you fix a lot?
+
+And if you'd be up for it: a quick 5-minute screen-share or video of your honest reaction would be worth more than anything. Optional, and there's a free lifetime account in it for you either way as one of the first inspectors on this.
+
+Reply any time — comes straight to me.
+
+— Enlil
+Founder, Lookover · uselookover.com`,
   };
 }
 

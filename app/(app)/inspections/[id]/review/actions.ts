@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { renderInspectionPdf } from "@/lib/pdf/render";
+import { sendFounderEmail, firstInspectionFeedbackEmail } from "@/lib/email/send";
 
 // All actions enforce RLS via the user's session client (no service role).
 // Each one revalidates the review page so server-rendered state stays in sync.
@@ -294,6 +295,44 @@ export async function finalizeInspection(
   if (upErr) return { ok: false, error: `Upload failed: ${upErr.message}` };
 
   await supabase.from("inspections").update({ pdf_url: pdfPath }).eq("id", inspectionId);
+
+  // First-finalized-report feedback. If this is the inspector's first ever finalized
+  // inspection, send a personal founder-voice feedback ask. Best-effort and fully
+  // isolated — a failure here must never affect the finalize result.
+  try {
+    const { count: finalizedCount } = await supabase
+      .from("inspections")
+      .select("id", { count: "exact", head: true })
+      .eq("inspector_id", user.id)
+      .not("finalized_at", "is", null);
+    if ((finalizedCount ?? 0) === 1) {
+      const [{ data: profile }, { data: inspRow }] = await Promise.all([
+        supabase.from("users").select("full_name").eq("id", user.id).maybeSingle(),
+        supabase
+          .from("inspections")
+          .select("property_address, property_city")
+          .eq("id", inspectionId)
+          .maybeSingle(),
+      ]);
+      const propertyLabel = [inspRow?.property_address, inspRow?.property_city]
+        .filter(Boolean)
+        .join(", ");
+      const fb = firstInspectionFeedbackEmail({
+        firstName: profile?.full_name ?? null,
+        propertyLabel: propertyLabel || null,
+      });
+      if (user.email) {
+        await sendFounderEmail({
+          to: user.email,
+          subject: fb.subject,
+          html: fb.html,
+          text: fb.text,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[finalize] first-inspection feedback email failed (non-fatal):", err);
+  }
 
   revalidatePath(`/inspections/${inspectionId}/review`);
   revalidatePath(`/inspections/${inspectionId}/finalize`);
