@@ -29,8 +29,9 @@ What I'm asking for from the first 10:
 - One 5-minute review video at the end (no script, just your real take)
 - Permission to quote you on the landing page if you'd recommend it
 
-What you get:
-- **Free lifetime account** — $129/mo locked at $0 forever, no card to start
+What you get (first 10 only):
+- **Free lifetime account** as a founding design partner — in exchange for the feedback + review video above. No card to start.
+- After the first 10: founding pricing at $79/mo locked for life (half the $129 standard), 14-day free trial.
 - Direct line to me. I built it, I answer the email.
 
 If you're in Texas I'd especially like to hear from you — I'm prioritizing TX for the pilot and I'll come out to a chapter meeting if you'd want a live walk-through.

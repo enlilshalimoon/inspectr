@@ -14,7 +14,7 @@ You walk the house with your phone — photos plus voice notes. By the time you'
 
 About 30 minutes per report instead of 3 hours of typing. 86% accuracy against the InterNACHI SOP on a 29-case benchmark before you even open it.
 
-What I'm trading: free lifetime account ($129/mo locked at $0 forever) for honest feedback over 30 days and one 5-minute review video at the end.
+What I'm trading: the first 10 inspectors come on as founding design partners — free lifetime account in exchange for honest feedback over 30 days + a 5-minute review video at the end. After those 10, you lock in founding pricing at $79/mo for life (half the $129 standard). 14-day free trial either way.
 
 No card to start. I'm in Texas, I answer the email myself, and I'll get on Zoom for a 20-min walk-through with anyone serious.
 
@@ -30,7 +30,7 @@ Hey TX folks — I'm building a report-drafting tool out of Austin and I'm looki
 
 Capture on the phone (photos + voice notes), drafts write themselves while you finish the walkthrough, review and finalize on the laptop. 30 min reports, same-day delivery. SOP-aligned drafts (we benchmark at 86% before inspector review).
 
-Trading free lifetime accounts for honest feedback + a short review video at the end. Founding inspectors get quoted on the site if they'd recommend it.
+First 10 come on as founding design partners — free lifetime account for honest feedback + a short review video at the end. After that, founding pricing is $79/mo locked for life. Quoted on the site if you'd recommend it.
 
 Happy to come to the next TAREI chapter meeting if anyone here is going — would rather hand you a phone and let you try it than talk about it.
 

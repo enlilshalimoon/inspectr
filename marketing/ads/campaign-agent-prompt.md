@@ -159,7 +159,7 @@ Local backups: `public/marketing/ads/_ad-variant-{7,8,9}{,-9x16}.png`.
 
 - Primary: `Built for Texas residential inspectors who want their evenings back. Photo + voice in, SOP-language report out. Inspector approves every finding before anything reaches the client. Same-day delivery, branded as you.`
 - Headline: `30-min reports. Still your license.`
-- Description: `Free for life if you're one of the first 10.`
+- Description: `14-day free trial. First 50 lock in $79/mo founding pricing for life.`
 - CTA: `LEARN_MORE`
 - URL: `https://www.uselookover.com/sample?utm_source=meta&utm_medium=cpc&utm_campaign=tx-pilot-1&utm_content=v9-procore-style`
 
@@ -262,6 +262,7 @@ When iterating off a winner, change ONE major dimension (type weight, hero numbe
 - Cap any single ad set at $50/day without explicit founder approval.
 - Targeting stays narrow (TX, AND-interests) unless explicitly broadened by the founder.
 - Never use copy that mentions cost estimates, repairs, or buyer-facing guidance.
+- **Never dangle "free for life" in ads.** Free-for-life is an earned, capped design-partner offer (see `marketing/OFFER-POLICY.md`) — not a cold-traffic hook. Ads lead with product value + "14-day free trial · first 50 lock in $79/mo founding pricing for life." All offer/pricing language must match OFFER-POLICY.md.
 - Never auto-approve Higgsfield output with visible misspellings of `Lookover`, `InterNACHI`, `SOP`, or `Texas`. Regen or escalate.
 - Don't reply to comments or DMs on the Page or ads — flag urgent items to the founder.
 - Don't modify the website code, pixel install, or privacy policy. Read-only on the codebase.

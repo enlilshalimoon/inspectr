@@ -252,7 +252,7 @@ export function firstInspectionFeedbackEmail(opts: {
     2. What's missing that you'd need before you'd use it on every inspection?<br>
     3. Did the drafted findings read right against the SOP — or did you have to fix a lot?
   </p>
-  <p style="${p}">And if you'd be up for it: a quick 5-minute screen-share or video of your honest reaction would be worth more to me than anything. Totally optional, and there's a free lifetime account in it for you either way as one of the first inspectors on this.</p>
+  <p style="${p}">And if you'd be up for it — a quick 5-minute screen-share or video of your honest reaction would be worth more to me than anything. I'm locking in the first handful of inspectors who do that as founding members, free for life. No pressure either way.</p>
   <p style="${p}">Reply any time — this comes straight to me.</p>
   <p style="margin:18px 0 0">— Enlil<br><span style="color:#64748b">Founder, Lookover · uselookover.com</span></p>
 </div></body></html>`;
@@ -269,7 +269,7 @@ I'd really value your honest take. No form — just reply and tell me whatever's
 2. What's missing before you'd use it on every inspection?
 3. Did the drafted findings read right against the SOP, or did you fix a lot?
 
-And if you'd be up for it: a quick 5-minute screen-share or video of your honest reaction would be worth more than anything. Optional, and there's a free lifetime account in it for you either way as one of the first inspectors on this.
+And if you'd be up for it — a quick 5-minute screen-share or video of your honest reaction would be worth more than anything. I'm locking in the first handful of inspectors who do that as founding members, free for life. No pressure either way.
 
 Reply any time — comes straight to me.
 

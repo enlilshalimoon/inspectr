@@ -74,6 +74,8 @@ By end of week 4: **10 paying (or founding-tier) inspectors actively using Looko
 
 ### Outreach copy template
 
+> **Offer terms are governed by `marketing/OFFER-POLICY.md` (authoritative).** Short version: free-for-life is **earned** (honest feedback + a short review video) and **capped at 10 design partners**. Everyone after the 10 gets the **$79/mo founding price locked for life** (first 50), 14-day trial. Don't dangle free-for-life in cold ads.
+
 Use this for forum posts / DMs / FB groups. It's already in the brand voice.
 
 > **Subject / Title:** Free lifetime account on a new inspection tool — looking for honest feedback from 10 inspectors
