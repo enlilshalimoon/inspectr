@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getStripe, priceIdFor, type PlanKey } from "@/lib/stripe/server";
+import { getStripe, lineItemFor, type PlanKey } from "@/lib/stripe/server";
 
 async function appOrigin(): Promise<string> {
   const h = await headers();
@@ -49,7 +49,7 @@ export async function startCheckout(plan: PlanKey): Promise<void> {
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
-    line_items: [{ price: priceIdFor(plan), quantity: 1 }],
+    line_items: [lineItemFor(plan)],
     success_url: `${base}/billing?checkout=success`,
     cancel_url: `${base}/billing?checkout=canceled`,
     allow_promotion_codes: true,
