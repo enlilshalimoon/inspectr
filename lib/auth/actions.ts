@@ -13,6 +13,7 @@ export type AuthState = {
   error?: string;
   ok?: boolean;
   message?: string;
+  next?: string; // client navigates here on success (lets the client fire pixel events first)
 } | null;
 
 // ---------------------------------------------------------------------------
@@ -98,7 +99,9 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     /* best-effort: a failed welcome email must not break signup */
   });
 
-  redirect("/onboarding");
+  // Return success (instead of a server redirect) so the client can fire the
+  // CompleteRegistration pixel event before navigating to onboarding.
+  return { ok: true, next: "/onboarding" };
 }
 
 // ---------------------------------------------------------------------------

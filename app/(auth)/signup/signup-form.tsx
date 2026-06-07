@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,28 +10,35 @@ import { signupAction, type AuthState } from "@/lib/auth/actions";
 import { trackEvent } from "@/components/MetaPixel";
 
 export function SignupForm() {
+  const router = useRouter();
   const [state, action, pending] = useActionState<AuthState, FormData>(signupAction, null);
 
-  // Fire Meta Pixel "Lead" when the signup form mounts — intent signal for ad
-  // optimization. Fire "CompleteRegistration" when the action returns ok=true
-  // (email-confirm flow). The redirect flow (immediate session) bypasses this
-  // return path; future enhancement is to fire CompleteRegistration on the
-  // /onboarding page when arrived via signup, but the email-confirm path is
-  // dominant in production and covers the conversion event we care about.
-  useEffect(() => {
-    trackEvent("Lead");
-  }, []);
-
+  // CompleteRegistration = a real account was created (action returned ok). Fire
+  // once, then navigate (with a brief beat so the pixel beacon goes out before we
+  // leave the page). Lead (intent) fires on form submit, not here — see onSubmit.
   const completeReportedRef = useRef(false);
   useEffect(() => {
     if (state?.ok && !completeReportedRef.current) {
       completeReportedRef.current = true;
       trackEvent("CompleteRegistration");
+      if (state.next) {
+        const dest = state.next;
+        setTimeout(() => router.push(dest), 600);
+      }
     }
-  }, [state]);
+  }, [state, router]);
+
+  // Lead = signup intent. Fires only when the form actually submits (passes native
+  // validation), i.e. the user clicked "Create account" with valid fields — NOT on
+  // page view. This is the fix for inflated Lead counts.
+  const redirecting = !!(state?.ok && state.next);
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      action={action}
+      onSubmit={() => trackEvent("Lead")}
+      className="space-y-4"
+    >
       <div className="space-y-1.5">
         <Label htmlFor="fullName">Your name</Label>
         <Input id="fullName" name="fullName" autoComplete="name" required />
@@ -55,10 +63,15 @@ export function SignupForm() {
       </div>
 
       <FormMessage message={state?.error} kind="error" />
-      <FormMessage message={state?.ok ? state.message : null} kind="success" />
+      <FormMessage
+        message={
+          state?.ok ? (state.message ?? "Account created — taking you in…") : null
+        }
+        kind="success"
+      />
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? "Creating account…" : "Create account"}
+      <Button type="submit" size="lg" className="w-full" disabled={pending || redirecting}>
+        {pending ? "Creating account…" : redirecting ? "Account created…" : "Create account"}
       </Button>
 
       <p className="text-xs text-slate-500">
