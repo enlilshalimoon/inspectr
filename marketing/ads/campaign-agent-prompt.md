@@ -106,13 +106,25 @@ Write `marketing/ads/brand-audit.md` summarizing each check + any items requirin
 | Special categories | none |
 | CBO | off (ad-set-level budgets so per-creative kill rules work) |
 
-### 3 ad sets — same audience, different creative funnel position
+### ONE ad set — optimize for the real conversion, pool the budget
 
-| Ad set | Optimize for | Daily budget | Creative |
+> **Updated 2026-06-06 after the first run.** The first launch split into 3 ad sets,
+> 2 of which optimized for `Lead`. At the time `Lead` was firing on page view (bug,
+> now fixed) — so it optimized for garbage, and splitting fragmented the already-thin
+> conversion signal. Do NOT repeat that. One ad set, one optimization event, full budget.
+
+| Ad set | Optimize for | Daily budget | Creative (2 ads, let Meta pick) |
 |---|---|---|---|
-| **AS1 Awareness** | `Lead` | $10/day | V9 — Procore-style photo+overlay |
-| **AS2 Filter** | `Lead` | $10/day | V7 — Finding-as-hero |
-| **AS3 Conversion** | `CompleteRegistration` | $10/day | V8 — Stat + readable phone UI |
+| **Single — Conversion** | `CompleteRegistration` | $30/day | V7 — Finding-as-hero **and** V8 — Stat + readable phone UI |
+
+- **Optimize for `CompleteRegistration`** (a real completed signup), NOT `Lead`. Quality over volume.
+- **Volume caveat:** Meta wants ~15–50 of the optimization event per week to exit learning.
+  At a small budget + early PMF you may not feed it that many CompleteRegistrations.
+  **Fallback:** if after ~$100 spend the ad set badly underdelivers (very high CPM, can't
+  pace the budget), switch a fresh ad set to optimize for `Lead` — which is now FIXED (fires
+  on real signup *submit*, not page view), so it's a legitimate higher-volume proxy, not junk.
+- **Do not change the optimization event on a live ad set** — Meta locks it at creation.
+  Changing it = create a new ad set.
 
 Shared targeting:
 
