@@ -31,9 +31,8 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
   },
   manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/favicon.ico",
-  },
+  // Favicon is provided by the app/icon.png file convention (generated from the
+  // brand logo via scripts/gen-icons.mjs) — no explicit icons override needed.
   openGraph: {
     type: "website",
     siteName: APP_NAME,

@@ -43,7 +43,7 @@ export function Hero() {
             </Link>
           </div>
           <p className="text-xs text-slate-500 pt-1">
-            No credit card. Up to 3 inspections during trial. Cancel from settings in one click.
+            No credit card. Up to 3 inspections during trial. Cancel anytime in one click.
           </p>
         </div>
       </div>

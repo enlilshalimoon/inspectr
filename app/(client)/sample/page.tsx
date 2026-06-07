@@ -243,7 +243,7 @@ export default function SampleReportPage() {
         <section className="rounded-2xl bg-slate-900 text-white p-6 sm:p-8 text-center space-y-4">
           <h2 className="text-2xl font-semibold">Want this for your reports?</h2>
           <p className="text-slate-300 max-w-md mx-auto">
-            14-day free trial. No credit card. Up to 3 inspections. Cancel from settings in
+            14-day free trial. No credit card. Up to 3 inspections. Cancel anytime in
             one click.
           </p>
           <div className="pt-2">

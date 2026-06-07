@@ -149,7 +149,7 @@ export function Pricing() {
         </div>
 
         <p className="mt-10 text-sm text-slate-500 max-w-3xl">
-          No credit card to start. Cancel from settings in one click. We don&apos;t hold
+          No credit card to start. Cancel anytime in one click. We don&apos;t hold
           your data hostage — export your inspections to JSON any time.
         </p>
       </div>
