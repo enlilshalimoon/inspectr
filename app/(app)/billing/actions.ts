@@ -50,7 +50,7 @@ export async function startCheckout(plan: PlanKey): Promise<void> {
     mode: "subscription",
     customer: customerId,
     line_items: [lineItemFor(plan)],
-    success_url: `${base}/billing?checkout=success`,
+    success_url: `${base}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${base}/billing?checkout=canceled`,
     allow_promotion_codes: true,
     subscription_data: { metadata: { supabase_user_id: user.id, plan } },

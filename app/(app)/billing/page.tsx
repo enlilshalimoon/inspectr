@@ -11,15 +11,16 @@ import {
   type EntitlementInput,
 } from "@/lib/billing/entitlement";
 import { checkoutFounding, checkoutStandard, openBillingPortal } from "./actions";
+import { reconcileBilling } from "@/lib/stripe/reconcile";
 
 export const dynamic = "force-dynamic";
 
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ checkout?: string; session_id?: string }>;
 }) {
-  const { checkout } = await searchParams;
+  const { checkout, session_id } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -27,11 +28,28 @@ export default async function BillingPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("users")
     .select("subscription_status, trial_ends_at, stripe_customer_id")
     .eq("id", user.id)
     .single();
+
+  // Self-heal: confirm subscription state directly with Stripe (covers webhook
+  // failures). Only does anything when returning from Checkout or for an existing
+  // Stripe customer — trial/comped users with no customer skip the Stripe call.
+  const snapshot = await reconcileBilling(user.id, {
+    sessionId: session_id ?? null,
+    existingCustomerId: profile?.stripe_customer_id ?? null,
+  });
+  if (snapshot) {
+    // re-read the row we just updated so the UI reflects the synced status
+    const { data: fresh } = await supabase
+      .from("users")
+      .select("subscription_status, trial_ends_at, stripe_customer_id")
+      .eq("id", user.id)
+      .single();
+    if (fresh) profile = fresh;
+  }
 
   const ent: EntitlementInput = {
     subscription_status: profile?.subscription_status ?? null,
@@ -44,6 +62,16 @@ export default async function BillingPage({
   const comped = isComped(ent);
   const daysLeft = trialDaysLeft(ent.trial_ends_at);
   const onTrial = ent.subscription_status === "trial";
+
+  const planName = snapshot?.planLabel ?? null;
+  const planPrice =
+    snapshot?.amountCents != null ? `$${(snapshot.amountCents / 100).toFixed(0)}/mo` : null;
+  const renewLabel =
+    snapshot?.currentPeriodEnd != null
+      ? `${snapshot.cancelAtPeriodEnd ? "Ends" : "Renews"} ${new Date(
+          snapshot.currentPeriodEnd * 1000,
+        ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      : null;
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 py-10 space-y-6">
@@ -87,10 +115,26 @@ export default async function BillingPage({
               }
               tone={ent.subscription_status === "past_due" ? "amber" : "green"}
             />
+
+            {/* Plan summary */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="font-medium text-slate-900">
+                  {planName ? `${planName} plan` : "Your plan"}
+                </div>
+                {renewLabel && (
+                  <div className="text-xs text-slate-500 mt-0.5">{renewLabel}</div>
+                )}
+              </div>
+              {planPrice && (
+                <div className="text-lg font-semibold text-slate-900">{planPrice}</div>
+              )}
+            </div>
+
             <p className="text-sm text-slate-600">
               {ent.subscription_status === "past_due"
                 ? "Your last payment didn't go through. Update your card to keep your account active."
-                : "Your subscription is active. Manage your card, invoices, or cancel anytime."}
+                : "Manage your card, view invoices, or cancel anytime."}
             </p>
             <form action={openBillingPortal}>
               <Button type="submit" variant="outline">
