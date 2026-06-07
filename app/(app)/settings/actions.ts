@@ -42,6 +42,29 @@ export async function updateSettings(
   return { ok: true };
 }
 
+const passwordSchema = z.object({ password: z.string().min(8, "At least 8 characters.") });
+
+// Sets a new password for the currently-signed-in user. Used both from normal
+// settings and from the password-recovery flow (where /auth/confirm has just
+// established a recovery session before redirecting here).
+export async function updatePassword(
+  input: z.infer<typeof passwordSchema>,
+): Promise<SettingsResult> {
+  const parsed = passwordSchema.safeParse(input);
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 const logoSchema = z.object({ storage_path: z.string().min(1).nullable() });
 
 export async function updateLogo(input: z.infer<typeof logoSchema>): Promise<SettingsResult> {

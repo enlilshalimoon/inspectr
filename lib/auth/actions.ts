@@ -155,25 +155,30 @@ export async function resetPasswordAction(
   }
 
   const origin = await originFromHeaders();
-  const redirectTo = `${origin}/auth/callback?next=/settings/password`;
 
-  // Generate the recovery link server-side via the admin API, then deliver it through
+  // Generate a recovery token server-side via the admin API, then deliver it through
   // our branded Resend pipeline (from noreply@uselookover.com) instead of Supabase's
-  // default @supabase.io mailer. Same secure token as the built-in flow — only the
-  // delivery channel changes. generateLink does NOT send an email itself.
+  // default @supabase.io mailer. generateLink does NOT send an email itself.
+  //
+  // IMPORTANT: we use the returned `hashed_token` and build our OWN link to
+  // /auth/confirm (which calls verifyOtp). We do NOT use `action_link` — that
+  // redirects back with a URL fragment / no ?code, which the /auth/callback handler
+  // can't consume (that was the "missing code" bug).
   try {
     const admin = createServiceClient();
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",
       email: parsed.data.email,
-      options: { redirectTo },
     });
     if (error) {
       // Most common benign case: email doesn't exist. Log, stay generic to the user.
       console.error("[reset-password] generateLink error:", error.message);
     } else {
-      const resetUrl = data.properties?.action_link;
-      if (resetUrl) {
+      const tokenHash = data.properties?.hashed_token;
+      if (tokenHash) {
+        const resetUrl =
+          `${origin}/auth/confirm?token_hash=${encodeURIComponent(tokenHash)}` +
+          `&type=recovery&next=${encodeURIComponent("/settings/password")}`;
         const email = passwordResetEmail({ resetUrl });
         await sendSystemEmail({
           to: parsed.data.email,
