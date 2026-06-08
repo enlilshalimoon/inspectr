@@ -99,6 +99,49 @@ export default async function AdminPage() {
     });
   }
 
+  // Recent inspections WITH progress — "how far along is each one"
+  type InspRow = {
+    id: string;
+    inspector_id: string;
+    status: string;
+    property_address: string | null;
+    property_city: string | null;
+    created_at: string;
+  };
+  const { data: recentInspRaw } = await admin
+    .from("inspections")
+    .select("id, inspector_id, status, property_address, property_city, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const recentInsp = (recentInspRaw ?? []) as InspRow[];
+  const inspIds = recentInsp.map((i) => i.id);
+  const inspectorIds = [...new Set(recentInsp.map((i) => i.inspector_id))];
+
+  const photosByInsp: Record<string, number> = {};
+  const findingsByInsp: Record<string, number> = {};
+  const approvedByInsp: Record<string, number> = {};
+  const whoByInspector: Record<string, string> = {};
+  if (inspIds.length > 0) {
+    const [photosRes, findingsRes, inspectorsRes] = await Promise.all([
+      admin.from("photos").select("inspection_id").in("inspection_id", inspIds),
+      admin.from("findings").select("inspection_id, is_approved").in("inspection_id", inspIds),
+      admin.from("users").select("id, full_name, email").in("id", inspectorIds),
+    ]);
+    photosRes.data?.forEach((r) => {
+      const k = r.inspection_id as string;
+      photosByInsp[k] = (photosByInsp[k] ?? 0) + 1;
+    });
+    findingsRes.data?.forEach((r) => {
+      const k = r.inspection_id as string;
+      findingsByInsp[k] = (findingsByInsp[k] ?? 0) + 1;
+      if (r.is_approved) approvedByInsp[k] = (approvedByInsp[k] ?? 0) + 1;
+    });
+    inspectorsRes.data?.forEach((u) => {
+      whoByInspector[u.id as string] =
+        (u.full_name as string) || (u.email as string) || "—";
+    });
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 space-y-10">
       <header className="space-y-1">
@@ -189,6 +232,70 @@ export default async function AdminPage() {
         </div>
       </section>
 
+      {/* Recent inspections — how far along each one is */}
+      <section className="space-y-3">
+        <h2 className="text-sm uppercase tracking-wide text-slate-500 font-medium">
+          Recent inspections (last 20)
+        </h2>
+        <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
+              <tr>
+                <Th>Property</Th>
+                <Th>Inspector</Th>
+                <Th>Stage</Th>
+                <Th align="right">Photos</Th>
+                <Th align="right">Findings</Th>
+                <Th align="right">Approved</Th>
+                <Th>Started</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentInsp.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                    No inspections yet.
+                  </td>
+                </tr>
+              ) : (
+                recentInsp.map((ins) => {
+                  const findings = findingsByInsp[ins.id] ?? 0;
+                  const approved = approvedByInsp[ins.id] ?? 0;
+                  return (
+                    <tr key={ins.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <Td>
+                        {ins.property_address ?? <Muted>—</Muted>}
+                        {ins.property_city && (
+                          <span className="text-slate-400"> · {ins.property_city}</span>
+                        )}
+                      </Td>
+                      <Td>{whoByInspector[ins.inspector_id] ?? <Muted>—</Muted>}</Td>
+                      <Td>
+                        <InspectionStage status={ins.status} />
+                      </Td>
+                      <Td align="right">{photosByInsp[ins.id] ?? 0}</Td>
+                      <Td align="right">{findings}</Td>
+                      <Td align="right">
+                        {findings > 0 ? (
+                          <span className={approved === findings ? "text-green-700" : "text-slate-600"}>
+                            {approved}/{findings}
+                          </span>
+                        ) : (
+                          <Muted>—</Muted>
+                        )}
+                      </Td>
+                      <Td>
+                        <span className="text-slate-500">{formatRelative(ins.created_at)}</span>
+                      </Td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <footer className="text-xs text-slate-400 pt-4 border-t border-slate-200">
         Admin access controlled via the <code className="font-mono">ADMIN_EMAILS</code>{" "}
         env var (Vercel → Settings → Environment Variables). Add a comma-separated
@@ -205,6 +312,21 @@ function getTimeWindows() {
     weekAgo: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
     monthAgo: new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
   };
+}
+
+function InspectionStage({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    in_progress: { label: "Capturing", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    review: { label: "In review", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+    finalized: { label: "Finalized", cls: "bg-green-50 text-green-700 border-green-200" },
+    delivered: { label: "Delivered", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  };
+  const s = map[status] ?? { label: status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+  return (
+    <span className={`inline-flex text-xs px-2 py-0.5 rounded-full border ${s.cls}`}>
+      {s.label}
+    </span>
+  );
 }
 
 function MetricCard({

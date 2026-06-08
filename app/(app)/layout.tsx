@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logoutAction } from "@/lib/auth/actions";
 import { isAdmin } from "@/lib/auth/is-admin";
+import { MobileNav } from "./mobile-nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -20,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh flex flex-col bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/inspections" className="text-base font-semibold text-slate-900">
@@ -37,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="hidden sm:inline text-xs text-slate-500">
               {profile?.company_name ?? profile?.full_name ?? user.email}
             </span>
-            <form action={logoutAction}>
+            <form action={logoutAction} className="hidden sm:block">
               <button
                 type="submit"
                 className="text-sm text-slate-600 hover:text-slate-900 px-2 py-1"
@@ -45,6 +46,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 Sign out
               </button>
             </form>
+            {/* Mobile hamburger — the only way to navigate on phones */}
+            <MobileNav isAdmin={userIsAdmin} />
           </div>
         </div>
       </header>
