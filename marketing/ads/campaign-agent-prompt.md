@@ -115,7 +115,7 @@ Write `marketing/ads/brand-audit.md` summarizing each check + any items requirin
 
 | Ad set | Optimize for | Daily budget | Creative (2 ads, let Meta pick) |
 |---|---|---|---|
-| **Single — Conversion** | `CompleteRegistration` | $30/day | V7 — Finding-as-hero **and** V8 — Stat + readable phone UI |
+| **Single — Conversion** | `CompleteRegistration` | $30/day | Ad A — Phone capture **and** Ad B — Client report (product-forward, see §creatives) |
 
 - **Optimize for `CompleteRegistration`** (a real completed signup), NOT `Lead`. Quality over volume.
 - **Volume caveat:** Meta wants ~15–50 of the optimization event per week to exit learning.
@@ -137,43 +137,31 @@ Shared targeting:
 - **Bid:** lowest-cost
 - **Schedule:** start now, end when total campaign spend hits $300
 
-### 6 ads — 3 creatives × 2 aspect ratios
+### 2 ads — PRODUCT-FORWARD creative (1:1 for feeds, 9:16 for stories/reels)
 
-Each ad set gets 2 ads (1:1 for feeds, 9:16 for stories/reels) sharing the same copy.
+> **Updated 2026-06-08.** Replaced the old text-card/graphic creatives (V7 finding-hero
+> etc. — moved to `public/marketing/ads/archive/`). Those showed no product. These show
+> the actual app: capture on the phone, the report the client gets. Run these two; bench
+> the rest (`ad-laptop-review-*`, `ad-stat-phone-*`, `ad-procore-style-*`).
 
-| Variant | 1:1 URL | 9:16 URL |
+| Ad | 1:1 (Feed) | 9:16 (Stories/Reels) |
 |---|---|---|
-| V7 — Finding hero | `https://d8j0ntlcm91z4.cloudfront.net/user_37GITGrVndbHmqIkgRdaViXHRAT/hf_20260602_065001_9a30eec5-b850-4942-a9df-221ca24c9632.png` | `https://d8j0ntlcm91z4.cloudfront.net/user_37GITGrVndbHmqIkgRdaViXHRAT/hf_20260602_070205_83b65f28-3322-43b6-bb1f-67cd3afc518a.png` |
-| V8 — Stat + phone | `https://d8j0ntlcm91z4.cloudfront.net/user_37GITGrVndbHmqIkgRdaViXHRAT/hf_20260602_065015_51a27238-44de-442a-adb2-92de46ed1102.png` | `https://d8j0ntlcm91z4.cloudfront.net/user_37GITGrVndbHmqIkgRdaViXHRAT/hf_20260602_070218_cb1c2083-2d41-49f0-846d-6f8f077f0d1a.png` |
-| V9 — Procore style | `https://d8j0ntlcm91z4.cloudfront.net/user_37GITGrVndbHmqIkgRdaViXHRAT/hf_20260602_065032_b91fc407-34fe-4378-9cb3-83ecbec9d9b7.png` | `https://d8j0ntlcm91z4.cloudfront.net/user_37GITGrVndbHmqIkgRdaViXHRAT/hf_20260602_070233_1b2ca4a4-d7dc-4526-bfbe-ae8779609f9f.png` |
+| **A — Phone capture** (lead) | `https://www.uselookover.com/marketing/ads/ad-phone-capture-1x1.png` | `https://www.uselookover.com/marketing/ads/ad-phone-capture-9x16.png` |
+| **B — Client report** | `https://www.uselookover.com/marketing/ads/ad-client-report-1x1.png` | `https://www.uselookover.com/marketing/ads/ad-client-report-9x16.png` |
 
-Local backups: `public/marketing/ads/_ad-variant-{7,8,9}{,-9x16}.png`.
+Bench (next tests): `ad-laptop-review-{1x1,9x16}.png`, `ad-stat-phone-{1x1,9x16}.png`, `ad-procore-style-{1x1,9x16}.png` — all under `https://www.uselookover.com/marketing/ads/`.
 
-### Copy per variant
+### Copy — both ads point at /signup, CTA `SIGN_UP`
 
-**V7 — Finding hero (AS2 Filter)**
+Shared primary text (both ads):
+`Capture photos + voice on the walkthrough. Findings draft in standard SOP language before you're back to the truck. You approve every one. Branded report to your client same day. Built for residential home inspectors.`
 
-- Primary: `Capture the photos. Talk through the findings. Lookover drafts the report in standard SOP language before you're back to your truck. You approve every finding before anything goes to the client. Built by an inspector for inspectors.`
-- Headline: `30-min reports. Still your license.`
-- Description: `14-day free trial. No card. Up to 3 inspections.`
-- CTA: `LEARN_MORE`
-- URL: `https://www.uselookover.com/sample?utm_source=meta&utm_medium=cpc&utm_campaign=tx-pilot-1&utm_content=v7-finding-hero`
+- **Ad A — Phone capture** · Headline: `Your whole report, captured on your phone.` · URL: `https://www.uselookover.com/signup?utm_source=meta&utm_medium=cpc&utm_campaign=tx-relaunch-1&utm_content=phone-capture`
+- **Ad B — Client report** · Headline: `The report your client actually wants.` · URL: `https://www.uselookover.com/signup?utm_source=meta&utm_medium=cpc&utm_campaign=tx-relaunch-1&utm_content=client-report`
 
-**V8 — Stat + phone (AS3 Conversion)**
+Description (both): `14-day free trial. First 50 lock in $79/mo founding pricing for life.`
 
-- Primary: `Stop typing reports past midnight. Lookover drafts your findings in standard InterNACHI SOP language while you walk the property. You review, edit, approve — every finding, every time. Branded PDF goes to your client same day. 86% SOP alignment on a 29-case benchmark (before your review).`
-- Headline: `30 min reports, not 3 hours.`
-- Description: `14-day free trial. No card.`
-- CTA: `SIGN_UP`
-- URL: `https://www.uselookover.com/signup?utm_source=meta&utm_medium=cpc&utm_campaign=tx-pilot-1&utm_content=v8-stat-phone`
-
-**V9 — Procore style (AS1 Awareness)**
-
-- Primary: `Built for Texas residential inspectors who want their evenings back. Photo + voice in, SOP-language report out. Inspector approves every finding before anything reaches the client. Same-day delivery, branded as you.`
-- Headline: `30-min reports. Still your license.`
-- Description: `14-day free trial. First 50 lock in $79/mo founding pricing for life.`
-- CTA: `LEARN_MORE`
-- URL: `https://www.uselookover.com/sample?utm_source=meta&utm_medium=cpc&utm_campaign=tx-pilot-1&utm_content=v9-procore-style`
+**Copy rule:** never "free for life" (see `marketing/OFFER-POLICY.md`).
 
 ---
 
