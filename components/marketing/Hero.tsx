@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 export function Hero() {
@@ -6,14 +5,21 @@ export function Hero() {
     <section className="bg-slate-50 border-b border-slate-200">
       <div className="mx-auto max-w-6xl px-6 pt-12 pb-16 sm:pt-16 sm:pb-20">
         <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden ring-1 ring-slate-200 shadow-xl bg-slate-100">
-          <Image
-            src="/marketing/hero-capture-draft-done.webp"
-            alt="A home inspector holding a phone showing the Lookover app capturing a water heater finding, with the slogan Capture. Draft. Done."
-            fill
-            priority
-            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1152px"
-            className="object-cover"
-          />
+          {/* Muted autoplay loop; poster is the static hero so LCP paints instantly
+              and no-JS / reduced-motion users still see the composed frame. */}
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            poster="/marketing/hero-capture-draft-done.webp"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            aria-label="Lookover: capture a finding on your phone, draft the report, done."
+          >
+            <source src="/marketing/hero-loop-web.webm" type="video/webm" />
+            <source src="/marketing/hero-loop-web.mp4" type="video/mp4" />
+          </video>
         </div>
 
         <div className="mx-auto max-w-3xl text-center space-y-6 mt-12">
