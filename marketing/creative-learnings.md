@@ -38,9 +38,11 @@ Consistent pattern across every approval this project:
 2. **Moody lifestyle photography** — the "exhausted guy typing at midnight" concept:
    "why is the dude in a dark room in his house wtf are we doing". Pain-porn
    framing doesn't fit; the payoff (report delivered, home for dinner) does.
-3. **Text-based / flat-design ad cards** — iMessage thread, finding-card-on-cream,
-   schedule timeline: "stop with these fucking text based ones". Regardless of
-   their direct-response pedigree, they're not this brand's language.
+3. **Text-based / flat-design ad cards** — killed on first look ("no text based
+   ads")… then the **iMessage thread was revived on 2026-07-19** after the founder
+   saw it rendered ("might be really good, can we run those"). Lesson: taste calls
+   made sight-unseen aren't final — show the actual render before burying a
+   concept. The finding-card and schedule flat-designs stay benched.
 4. **Cinematic brand video as a paid ad** — the 8-sec dolly-in was fine as a hero
    loop but has no hook and no "aha"; wrong tool for cold traffic. It now lives as
    the landing-page hero loop (`public/marketing/hero-loop-web.mp4`).
@@ -95,6 +97,7 @@ $400 of learning nothing.
 | Attic flashlight 1:1 + 9:16 | `round3/ad-attic-flashlight-1x1.jpg`, `ad-attic-9x16.jpg` | Ready |
 | Tailgate delivered 1:1 + 9:16 | `round3/ad-tailgate-delivered-1x1.jpg`, `ad-tailgate-9x16.jpg` | Ready |
 | UI-pop video 1:1 (6s) | `round3/ad-roof-ui-pop-1x1.mp4` | QA'd frame-by-frame, ready |
+| iMessage thread 1:1 | `round3/ad-imessage-1x1.jpg` (+ `-alt` variant) | Revived 2026-07-19, QA'd, ready. Copy: "The 8:47 PM 'is the report ready?' text hits different when you sent it at 4:30." / headline "Same-day reports. Every day." Chat-UI ads may get a slower manual review pass on Meta — normal. |
 | Copy pairings | this doc + chat log | Roof: "You saw it. It wrote it up. You approve it." / Attic: "Voice notes in the crawlspace become SOP findings by the truck." / Tailgate: "Report delivered before you left the driveway." |
 
 Next step when resuming: load these into the **Lookover Ads** account
