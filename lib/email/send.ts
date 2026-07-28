@@ -278,6 +278,69 @@ Founder, Lookover · uselookover.com`,
   };
 }
 
+// ---------------------------------------------------------------------------
+// Founder check-in — a personal "how's it going?" that fires ~2-3 days after signup
+// (time-based, sent by the daily cron). Deliberately plain like the first-inspection
+// email so it reads as a real person, not a system. Two variants branch on where the
+// inspector got stuck:
+//   - "onboarding_incomplete": signed up but never finished setup
+//   - "no_inspection": finished setup but hasn't run a report yet
+// Inspectors who've already finalized a report get the separate first-inspection
+// feedback email instead (see firstInspectionFeedbackEmail), so the cron skips them.
+// ---------------------------------------------------------------------------
+export type CheckinVariant = "onboarding_incomplete" | "no_inspection";
+
+export function founderCheckinEmail(opts: {
+  variant: CheckinVariant;
+  firstName?: string | null;
+  companyName?: string | null;
+}) {
+  const name = opts.firstName?.trim() ? opts.firstName.trim().split(" ")[0] : "there";
+  const company = opts.companyName?.trim() || null;
+  const p = "margin:0 0 14px";
+
+  let subject: string;
+  let paragraphs: string[];
+
+  // Paragraphs hold RAW text (name/company unescaped). They're plain sentences with
+  // no intended markup, so we escape the whole string at HTML render and use raw for
+  // the text/plain part — that way user-supplied name/company can't inject HTML, and
+  // the text version doesn't show &#39;-style entities.
+  if (opts.variant === "onboarding_incomplete") {
+    subject = "did something trip you up?";
+    paragraphs = [
+      `Hey ${name},`,
+      `Enlil here — I built Lookover (I'm 26, solo founder, real person on the other end of this email).`,
+      `Saw you signed up a few days ago but didn't quite finish setting things up. No worries at all — but I'm curious: did something get confusing or annoying? That's genuinely useful for me to hear, because if the setup lost you, it's probably losing other inspectors too.`,
+      `If you just got busy, all good — your trial's still open and setup takes about 5 minutes. If something broke or didn't make sense, hit reply and tell me what happened. I'll fix it.`,
+      `Either way, thanks for trying it.`,
+    ];
+  } else {
+    subject = `how's it going, ${name}?`;
+    const companyRef = company ? `got ${company} set up` : "signed up";
+    paragraphs = [
+      `Hey ${name},`,
+      `Enlil here — I'm the guy who actually built Lookover (I'm 26, it's just me for now).`,
+      `Saw you ${companyRef} a couple days ago — thanks for giving it a shot. Looks like you haven't run your first inspection through it yet, which is really the moment it either clicks or it doesn't. If you've got a walkthrough coming up, try talking through it on your phone and letting it draft the report — should be ~30 min to review instead of the usual evening of typing.`,
+      `If anything's confusing about getting that first one going, just reply — I read every one of these myself and I'll walk you through it (or hop on a 15-min call if that's easier).`,
+      `How's it felt so far? Genuinely want your honest take.`,
+    ];
+  }
+
+  const sig = `<p style="margin:18px 0 0">— Enlil<br><span style="color:#64748b">Founder, Lookover · uselookover.com</span></p>`;
+  const bodyHtml = paragraphs.map((t) => `<p style="${p}">${escapeHtml(t)}</p>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#ffffff">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1e293b;max-width:540px;margin:0 auto;padding:28px 24px">
+  ${bodyHtml}
+  ${sig}
+</div></body></html>`;
+
+  const text = `${paragraphs.join("\n\n")}\n\n— Enlil\nFounder, Lookover · uselookover.com`;
+
+  return { subject, html, text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

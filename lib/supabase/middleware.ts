@@ -27,7 +27,14 @@ const PUBLIC_PATHS = [
   "/e-and-o",
 ];
 
-const PUBLIC_PREFIXES = ["/report/", "/api/stripe/webhook", "/_next", "/icons", "/favicon"];
+const PUBLIC_PREFIXES = [
+  "/report/",
+  "/api/stripe/webhook",
+  "/api/cron/", // cron jobs auth via CRON_SECRET bearer, not a user session
+  "/_next",
+  "/icons",
+  "/favicon",
+];
 
 function isPublic(pathname: string) {
   if (PUBLIC_PATHS.includes(pathname)) return true;

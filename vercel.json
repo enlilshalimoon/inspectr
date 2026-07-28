@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/founder-checkin",
+      "schedule": "0 16 * * *"
+    }
+  ]
+}
