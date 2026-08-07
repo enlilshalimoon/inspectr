@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { Camera, Trash2, RotateCcw, Mic, Square, Loader2, Sparkles } from "lucide-react";
+import {
+  Camera,
+  Image as ImageIcon,
+  Trash2,
+  RotateCcw,
+  Mic,
+  Square,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { SEVERITY_COLOR, SEVERITY_LABEL } from "@/lib/utils/severity";
@@ -32,6 +41,7 @@ export type CapturePhoto = {
   // For optimistic display
   localUrl?: string;
   errorMessage?: string;
+  aiErrorMessage?: string;
 };
 
 type Props = {
@@ -49,6 +59,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
     sections[0]?.id ?? "",
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const supabase = useMemo(() => createClient(), []);
 
   // Backfill: kick AI processing for any existing photo that hasn't been drafted yet.
@@ -66,7 +77,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
   }
 
   async function processPhotoAI(photoId: string, regenerate = false) {
-    patchPhoto(photoId, { ai_status: "processing" });
+    patchPhoto(photoId, { ai_status: "processing", aiErrorMessage: undefined });
     try {
       const res = await fetch("/api/ai/process-photo", {
         method: "POST",
@@ -74,11 +85,20 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         body: JSON.stringify({ photo_id: photoId, regenerate }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "AI failed");
-      patchPhoto(photoId, { ai_status: "drafted", finding: json.finding ?? null });
+      // The route sends `message` written for the inspector; `error` is the
+      // internal label. Prefer the former so failures are actionable.
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "AI failed");
+      patchPhoto(photoId, {
+        ai_status: "drafted",
+        finding: json.finding ?? null,
+        aiErrorMessage: undefined,
+      });
     } catch (err) {
       console.error("[ai] failed for photo", photoId, err);
-      patchPhoto(photoId, { ai_status: "failed" });
+      patchPhoto(photoId, {
+        ai_status: "failed",
+        aiErrorMessage: err instanceof Error ? err.message : "Analysis failed.",
+      });
     }
   }
 
@@ -88,16 +108,18 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       const files = e.target.files;
       if (!files || files.length === 0) return;
       const list = Array.from(files);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Clear the input that actually fired (camera or library) so picking the
+      // same file twice in a row still triggers a change event.
+      e.target.value = "";
       for (const file of list) await uploadOne(file, currentSectionId);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentSectionId],
   );
 
-  async function uploadOne(file: File, sectionId: string) {
+  async function uploadOne(rawFile: File, sectionId: string) {
     const tempId = crypto.randomUUID();
-    const localUrl = URL.createObjectURL(file);
+    const localUrl = URL.createObjectURL(rawFile);
 
     setPhotos((prev) => [
       {
@@ -114,6 +136,11 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
     ]);
 
     try {
+      // Normalize before upload: fixes iPhone HEIC (Safari can decode it even
+      // though Claude can't read it), corrects EXIF rotation, and shrinks a
+      // 4 MB camera original to a few hundred KB — which is most of the wait
+      // on both the upload and the vision call.
+      const file = await prepareImage(rawFile);
       const extension = guessExtension(file);
       const storagePath = `${userId}/${inspectionId}/${tempId}.${extension}`;
 
@@ -320,6 +347,10 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         </CardContent>
       </Card>
 
+      {/* Two inputs on purpose. `capture` opens the camera directly, which is
+          what you want standing on a roof — but it BYPASSES the photo library
+          entirely, so anyone trying the product away from a job site has
+          nothing to give it. The library input below is the escape hatch. */}
       <input
         ref={fileInputRef}
         type="file"
@@ -329,14 +360,32 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         onChange={handleFileChange}
         className="hidden"
       />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="w-full flex items-center justify-center gap-3 h-20 rounded-xl bg-slate-900 text-white font-medium text-lg hover:bg-slate-800 active:bg-slate-700 transition-colors shadow-sm"
-      >
-        <Camera className="h-6 w-6" />
-        Take photo for {currentSection?.label ?? "section"}
-      </button>
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full flex items-center justify-center gap-3 h-20 rounded-xl bg-slate-900 text-white font-medium text-lg hover:bg-slate-800 active:bg-slate-700 transition-colors shadow-sm"
+        >
+          <Camera className="h-6 w-6" />
+          Take photo for {currentSection?.label ?? "section"}
+        </button>
+        <button
+          type="button"
+          onClick={() => libraryInputRef.current?.click()}
+          className="w-full flex items-center justify-center gap-2 h-11 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 active:bg-slate-100 transition-colors"
+        >
+          <ImageIcon className="h-4 w-4" />
+          Choose existing photos
+        </button>
+      </div>
 
       {photos.length === 0 ? (
         <Card>
@@ -353,6 +402,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
               sectionLabel={sections.find((s) => s.id === p.section_id)?.label ?? "Unassigned"}
               onDelete={() => deletePhoto(p)}
               onRetry={() => retryUpload(p)}
+              onRetryAI={() => processPhotoAI(p.id, true)}
               onStartRecord={() => startRecording(p)}
               onStopRecord={() => stopRecording(p)}
             />
@@ -371,6 +421,7 @@ function PhotoCard({
   sectionLabel,
   onDelete,
   onRetry,
+  onRetryAI,
   onStartRecord,
   onStopRecord,
 }: {
@@ -378,6 +429,7 @@ function PhotoCard({
   sectionLabel: string;
   onDelete: () => void;
   onRetry: () => void;
+  onRetryAI: () => void;
   onStartRecord: () => void;
   onStopRecord: () => void;
 }) {
@@ -430,6 +482,21 @@ function PhotoCard({
               onStart={onStartRecord}
               onStop={onStopRecord}
             />
+          </div>
+        )}
+
+        {/* Why the analysis failed, and a way out. A bare "AI failed" with no
+            reason is what a mislabelled iPhone photo used to produce. */}
+        {photo.ai_status === "failed" && photo.aiErrorMessage && (
+          <div className="rounded-md border border-red-200 bg-red-50 p-2 space-y-1.5">
+            <p className="text-xs text-red-800">{photo.aiErrorMessage}</p>
+            <button
+              type="button"
+              onClick={onRetryAI}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 bg-white text-red-800 text-xs hover:bg-red-100"
+            >
+              <RotateCcw className="h-3 w-3" /> Try again
+            </button>
           </div>
         )}
 
@@ -542,6 +609,67 @@ function countByKey<T>(items: T[], key: (t: T) => string): Map<string, number> {
     m.set(k, (m.get(k) ?? 0) + 1);
   }
   return m;
+}
+
+// Media types Claude's vision API accepts. Anything else has to be transcoded
+// before upload or the analysis will fail server-side.
+const CLAUDE_READABLE = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+// Longest edge we keep. Inspection defects are legible well below camera
+// resolution, and a 4032px iPhone original costs upload time and vision
+// latency for no diagnostic gain.
+const MAX_EDGE = 2048;
+const JPEG_QUALITY = 0.85;
+
+// Re-encode a camera file into something Claude can read, at a sane size.
+//
+// The important case is HEIC: it's the iPhone default, Claude rejects it, and
+// the old code passed it straight through — the inspector got a bare "AI
+// failed". Safari decodes HEIC natively, so canvas transcoding fixes it on the
+// devices that actually produce it. Browsers that can't decode the file throw
+// here; we fall back to the original bytes and let the server return its
+// specific "this is a HEIC" message rather than guessing in the dark.
+async function prepareImage(file: File): Promise<File> {
+  const needsTranscode = !CLAUDE_READABLE.has(file.type.toLowerCase());
+
+  let bitmap: ImageBitmap;
+  try {
+    // imageOrientation matters: without it, EXIF-rotated phone photos upload
+    // sideways and the vision model analyzes them sideways.
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    return file;
+  }
+
+  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  if (!needsTranscode && scale === 1) {
+    bitmap.close?.();
+    return file;
+  }
+
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close?.();
+    return file;
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+  );
+  if (!blob) return file;
+
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
+  return new File([blob], `${baseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: file.lastModified,
+  });
 }
 
 function guessExtension(file: File): string {

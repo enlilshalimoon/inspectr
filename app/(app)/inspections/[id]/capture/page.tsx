@@ -16,33 +16,32 @@ export default async function CapturePage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) notFound();
 
-  const { data: inspection } = await supabase
-    .from("inspections")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
+  // These three are independent, and RLS scopes every one of them to the
+  // signed-in inspector — so run them together rather than paying three
+  // sequential round-trips on the first screen of a new inspection.
+  const [{ data: inspection }, { data: sectionRows }, { data: photoRows }] = await Promise.all([
+    supabase.from("inspections").select("id").eq("id", id).maybeSingle(),
+    supabase
+      .from("inspection_sections")
+      .select("id, section_type, section_order")
+      .eq("inspection_id", id)
+      .order("section_order"),
+    supabase
+      .from("photos")
+      .select(
+        "id, section_id, storage_path, created_at, ai_analysis, findings(id, severity, title)",
+      )
+      .eq("inspection_id", id)
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
   if (!inspection) notFound();
-
-  const { data: sectionRows } = await supabase
-    .from("inspection_sections")
-    .select("id, section_type, section_order")
-    .eq("inspection_id", id)
-    .order("section_order");
 
   const sections: SectionOption[] = (sectionRows ?? []).map((s) => ({
     id: s.id as string,
     type: s.section_type as SectionType,
     label: labelForSection(s.section_type as SectionType),
   }));
-
-  const { data: photoRows } = await supabase
-    .from("photos")
-    .select(
-      "id, section_id, storage_path, created_at, ai_analysis, findings(id, severity, title)",
-    )
-    .eq("inspection_id", id)
-    .order("created_at", { ascending: false })
-    .limit(100);
 
   // Sign URLs for existing photos (1h validity is fine for a capture session).
   const paths = (photoRows ?? []).map((p) => p.storage_path as string);

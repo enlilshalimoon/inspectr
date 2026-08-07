@@ -19,31 +19,33 @@ export default async function ReviewPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) notFound();
 
-  const { data: inspection } = await supabase
-    .from("inspections")
-    .select("id, status, property_year_built, property_sqft, property_type")
-    .eq("id", id)
-    .maybeSingle();
+  // Independent reads, all RLS-scoped to this inspector — fetch concurrently
+  // instead of four sequential round-trips before anything paints.
+  const [{ data: inspection }, { data: sections }, { data: findings }, { data: photoRows }] =
+    await Promise.all([
+      supabase
+        .from("inspections")
+        .select("id, status, property_year_built, property_sqft, property_type")
+        .eq("id", id)
+        .maybeSingle(),
+      supabase
+        .from("inspection_sections")
+        .select("id, section_type, section_order")
+        .eq("inspection_id", id)
+        .order("section_order"),
+      supabase
+        .from("findings")
+        .select(
+          "id, inspection_id, section_id, photo_id, severity, title, description, recommended_action, is_approved, inspector_edited, ai_confidence, created_at, updated_at",
+        )
+        .eq("inspection_id", id),
+      supabase
+        .from("photos")
+        .select("id, section_id, storage_path, created_at")
+        .eq("inspection_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
   if (!inspection) notFound();
-
-  const { data: sections } = await supabase
-    .from("inspection_sections")
-    .select("id, section_type, section_order")
-    .eq("inspection_id", id)
-    .order("section_order");
-
-  const { data: findings } = await supabase
-    .from("findings")
-    .select(
-      "id, inspection_id, section_id, photo_id, severity, title, description, recommended_action, is_approved, inspector_edited, ai_confidence, created_at, updated_at",
-    )
-    .eq("inspection_id", id);
-
-  const { data: photoRows } = await supabase
-    .from("photos")
-    .select("id, section_id, storage_path, created_at")
-    .eq("inspection_id", id)
-    .order("created_at", { ascending: false });
 
   // Sign URLs for photos (private bucket)
   const paths = (photoRows ?? []).map((p) => p.storage_path as string);

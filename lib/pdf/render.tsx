@@ -62,7 +62,7 @@ export async function loadReportData(
   const photoIds = Array.from(
     new Set(((findingRows as Finding[]) ?? []).map((f) => f.photo_id).filter(Boolean) as string[]),
   );
-  let photoMap: Record<string, string | null> = {};
+  const photoMap: Record<string, string | null> = {};
   if (photoIds.length) {
     const { data: photos } = await supabase
       .from("photos")

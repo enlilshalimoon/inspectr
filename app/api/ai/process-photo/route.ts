@@ -15,7 +15,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { analyzePhoto, draftFinding } from "@/lib/ai/anthropic";
+import { analyzePhoto, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
 import type {
   Photo,
   VoiceNote,
@@ -90,8 +90,15 @@ export async function POST(req: NextRequest) {
       visionAnalysis = await analyzePhoto(signed.signedUrl, sectionType);
     } catch (err) {
       console.error("[vision] failed:", err);
+      // UnsupportedImageError carries a message written for the inspector
+      // (e.g. "this is a HEIC"). Anything else is an infrastructure problem
+      // they can retry, so we keep the internals out of the UI.
+      const userMessage =
+        err instanceof UnsupportedImageError
+          ? err.message
+          : "Couldn't analyze this photo. Tap retry — if it keeps failing, the photo may be corrupted.";
       return NextResponse.json(
-        { error: "vision analysis failed", detail: msg(err) },
+        { error: "vision analysis failed", message: userMessage, detail: msg(err) },
         { status: 502 },
       );
     }
@@ -178,7 +185,11 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[draft] failed:", err);
     return NextResponse.json(
-      { error: "finding draft failed", detail: msg(err) },
+      {
+        error: "finding draft failed",
+        message: "Read the photo fine, but drafting the finding failed. Tap retry.",
+        detail: msg(err),
+      },
       { status: 502 },
     );
   }
