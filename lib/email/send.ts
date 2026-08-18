@@ -12,12 +12,17 @@
 const FROM_SYSTEM =
   process.env.RESEND_SYSTEM_FROM ?? "Lookover <noreply@uselookover.com>";
 
-// Founder-voice sender for personal beta touches (feedback asks, etc.). Reply-to
-// MUST be a working inbox — uselookover.com needs email forwarding/receiving set up,
-// otherwise replies bounce. Override via env once that inbox exists.
+// Founder-voice sender for personal beta touches (feedback asks, etc.).
+//
+// From stays enlil@ because these read as a personal note, but reply-to MUST be a
+// mailbox that actually accepts mail. It used to default to enlil@uselookover.com,
+// which was never created in Workspace — verified by bounce test, "Address not
+// found" — so every reply to a founder email bounced back at the inspector and we
+// never saw it. hello@ is confirmed deliverable. If enlil@ is later created (an
+// alias of hello@ is enough), point FOUNDER_REPLY_TO at it via env; no deploy needed.
 const FROM_FOUNDER =
   process.env.RESEND_FOUNDER_FROM ?? "Enlil at Lookover <enlil@uselookover.com>";
-const FOUNDER_REPLY_TO = process.env.FOUNDER_REPLY_TO ?? "enlil@uselookover.com";
+const FOUNDER_REPLY_TO = process.env.FOUNDER_REPLY_TO ?? "hello@uselookover.com";
 
 const BRAND = {
   navy: "#0f172a",
