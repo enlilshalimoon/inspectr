@@ -15,9 +15,22 @@ export function NewInspectionForm() {
   );
 
   const today = new Date().toISOString().slice(0, 10);
+  // Server-side error on one of the collapsed fields: show it, don't make the
+  // inspector hunt for it.
+  const optionalFieldError = !!state?.field && state.field !== "property_address";
 
   return (
-    <form action={action} className="space-y-5">
+    <form
+      action={action}
+      className="space-y-5"
+      // The browser's own checks (e.g. type="email") can't focus or point at a
+      // field inside a closed <details>, so submit silently does nothing.
+      // Open it first; the browser then shows its message on the field.
+      onInvalidCapture={(e) => {
+        const details = (e.target as HTMLElement).closest("details");
+        if (details) details.open = true;
+      }}
+    >
       <Card>
         <CardContent className="p-6 space-y-4">
           <Field id="property_address" label="Street address" required>
@@ -45,7 +58,7 @@ export function NewInspectionForm() {
           inside a closed <details> blocks submit with no visible error. */}
       <Card>
         <CardContent className="p-6">
-          <details>
+          <details open={optionalFieldError || undefined}>
             <summary className="cursor-pointer text-sm font-medium text-slate-900">
               More details{" "}
               <span className="font-normal text-slate-500">

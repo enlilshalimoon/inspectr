@@ -5,31 +5,47 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
 
-export type NewInspectionState = { error?: string } | null;
+// `field` names the input that failed so the form can open the optional
+// section when the problem is in there.
+export type NewInspectionState = { error?: string; field?: string } | null;
 
 const schema = z.object({
-  property_address: z.string().min(1, "Property address is required.").max(300),
-  property_city: z.string().max(120).optional().nullable(),
-  property_state: z.string().max(2).optional().nullable(),
-  property_zip: z.string().max(15).optional().nullable(),
+  property_address: z.string().min(1, "Property address is required.").max(300, "Street address is too long."),
+  property_city: z.string().max(120, "City is too long.").optional().nullable(),
+  property_state: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Use the 2-letter state code, e.g. TX.")
+    .optional()
+    .nullable(),
+  property_zip: z.string().max(15, "ZIP is too long.").optional().nullable(),
   property_year_built: z
-    .union([z.string().regex(/^\d{4}$/), z.literal("")])
+    .string()
+    .regex(/^(\d{4})?$/, "Year built should be a 4-digit year, e.g. 1998.")
     .transform((v) => (v ? Number(v) : null))
     .optional()
     .nullable(),
   property_sqft: z
-    .union([z.string().regex(/^\d+$/), z.literal("")])
+    .string()
+    .regex(/^\d*$/, "Square feet should be a whole number, e.g. 2100.")
     .transform((v) => (v ? Number(v) : null))
     .optional()
     .nullable(),
   property_type: z
-    .enum(["single_family", "condo", "townhouse", "multi_family", ""])
+    .enum(["single_family", "condo", "townhouse", "multi_family", ""], "Pick a property type from the list.")
     .optional()
     .transform((v) => (v === "" ? null : (v ?? null))),
-  client_name: z.string().max(160).optional().nullable(),
-  client_email: z.string().email("Invalid email.").optional().or(z.literal("")).nullable(),
-  client_phone: z.string().max(40).optional().nullable(),
-  inspection_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date.").optional().nullable(),
+  client_name: z.string().max(160, "Client name is too long.").optional().nullable(),
+  client_email: z
+    .email("Client email doesn't look right. Check it or leave it blank.")
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  client_phone: z.string().max(40, "Client phone is too long.").optional().nullable(),
+  inspection_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Inspection date isn't a valid date.")
+    .optional()
+    .nullable(),
 });
 
 export async function createInspection(
@@ -55,7 +71,11 @@ export async function createInspection(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+    const issue = parsed.error.issues[0];
+    return {
+      error: issue?.message ?? "Please check the form.",
+      field: typeof issue?.path[0] === "string" ? issue.path[0] : undefined,
+    };
   }
 
   const supabase = await createClient();
