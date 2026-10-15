@@ -44,9 +44,11 @@ type Props = {
   finding: Finding;
   inspectionId: string;
   userId: string;
+  // Signed URL of the photo this finding was drafted from.
+  photoUrl?: string | null;
 };
 
-export function EditableFindingCard({ finding, inspectionId, userId }: Props) {
+export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -116,7 +118,7 @@ export function EditableFindingCard({ finding, inspectionId, userId }: Props) {
   }
 
   function remove() {
-    if (!confirm("Delete this finding? The photo stays.")) return;
+    if (!confirm("Remove this finding from the report? The photo stays in the inspection but won't appear in the report.")) return;
     handle(deleteFinding({ finding_id: finding.id, inspection_id: inspectionId }));
   }
 
@@ -132,7 +134,10 @@ export function EditableFindingCard({ finding, inspectionId, userId }: Props) {
     setVoiceError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: pickAudioMime() });
+      // Only pass a mimeType the browser confirms; otherwise let it pick its
+      // default (audio/mp4 on iPhone). Forcing webm throws on older Safari.
+      const mimeType = pickAudioMime();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       const chunks: BlobPart[] = [];
       const startedAt = nowMs();
       recorder.ondataavailable = (e) => {
@@ -323,6 +328,19 @@ export function EditableFindingCard({ finding, inspectionId, userId }: Props) {
           </div>
         </div>
 
+        {/* The photo the draft was written from, so it can be checked against
+            the text before approving. Tap to open full size. */}
+        {photoUrl && (
+          <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoUrl}
+              alt={`Photo for: ${finding.title}`}
+              className="w-full sm:w-64 max-h-64 object-cover rounded-lg border border-slate-200 bg-slate-100"
+            />
+          </a>
+        )}
+
         {/* Title */}
         {editing ? (
           <input
@@ -479,7 +497,7 @@ function nowMs(): number {
   return Date.now();
 }
 
-function pickAudioMime(): string {
+function pickAudioMime(): string | undefined {
   const candidates = [
     "audio/webm;codecs=opus",
     "audio/webm",
@@ -489,7 +507,7 @@ function pickAudioMime(): string {
   for (const c of candidates) {
     if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) return c;
   }
-  return "audio/webm";
+  return undefined;
 }
 
 function mimeToExt(m: string): string {

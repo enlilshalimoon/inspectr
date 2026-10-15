@@ -17,6 +17,7 @@ Last updated: 2026-10-15.
 
 ## Open — needs the founder
 
+0. **Audit fixes (PR #2, `audit-2026-10-15`, not merged).** Audit in `docs/audit-2026-10-15.md`; this PR also fixes audit items 1–6. To ship: (a) merge PR #2 (deploys); (b) then paste `db/migrations/0003_lock_billing_columns.sql` into Supabase → SQL Editor and run it (stops users marking themselves paid); (c) on an iPhone: new inspection → leave section on "Auto" → shoot an electrical panel and a sink → check they land under Electrical / Plumbing, Review shows each photo on its card, delete one finding and reopen Capture (it should say "Not in report", not re-draft), turn on airplane mode mid-upload and back off (photo should send itself). (d) Ask Kristy how she delivers reports in Texas (TREC REI 7-6 form or custom?). Still open from the audit: items 7–10 (see doc).
 1. Press Send on the founder follow-up at /admin (if not done).
 2. Add the `autoMode.allow` rule so the signup monitor can send hello@ replies itself (until then it saves drafts and push-notifies).
 3. Test "Choose existing photos" on a real iPhone (HEIC path untested).

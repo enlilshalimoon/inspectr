@@ -11,7 +11,7 @@ const blocks: Block[] = [
   {
     eyebrow: "On the property",
     title: "Capture",
-    body: "One thumb, one hand. Photos and voice in the same screen. Works offline; syncs when you're back in service. No login between properties — you stay signed in for the day.",
+    body: "One thumb, one hand. Photos and voice in the same screen. Lose signal in the attic? Photos wait on your phone and upload when you're back in service. No login between properties — you stay signed in for the day.",
     image: {
       src: "/marketing/phone-utility-room.webp",
       alt: "Inspector's hand holding a phone showing the Lookover capture screen, with the actual water heater and copper plumbing visible in a basement utility room behind",
@@ -20,7 +20,7 @@ const blocks: Block[] = [
   {
     eyebrow: "In the truck",
     title: "Drafts arrive",
-    body: "By the time you sit down, Lookover has drafted findings for everything you captured. Each one ties back to the photo and voice note it came from, so you always know what informed it.",
+    body: "By the time you sit down, Lookover has drafted findings for everything you captured. Each one sits next to the photo it came from, filed under the section Lookover recognised, so you always know what informed it.",
     image: {
       src: "/marketing/phone-share-report.webp",
       alt: "Phone showing a drafted inspection finding card with severity badge — the moment the AI draft becomes visible to the inspector",
@@ -29,7 +29,7 @@ const blocks: Block[] = [
   {
     eyebrow: "At your desk",
     title: "Review and edit",
-    body: "Inline editing. Severity selector (Maintenance / Minor / Major / Safety). Bulk-approve the routine items. Add or swap photos. Reorder findings into your standard report sections.",
+    body: "Inline editing next to the photo. Severity selector (Informational / Monitor / Minor / Major / Safety). Bulk-approve the routine items. Delete anything that shouldn't be in the report.",
     image: {
       src: "/marketing/laptop-review-hand.webp",
       alt: "Desktop review interface — hand on the trackpad mid-edit, severity dropdown open on a Major roof flashing finding",

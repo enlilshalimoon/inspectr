@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { labelForSection } from "@/lib/supabase/sections";
 import type { SectionType } from "@/lib/supabase/types";
 import type { Severity } from "@/lib/supabase/types";
+import { isFindingDismissed } from "@/lib/inspection/photos";
 import { CaptureClient, type CapturePhoto, type SectionOption } from "./capture-client";
 
 type Props = { params: Promise<{ id: string }> };
@@ -59,6 +60,7 @@ export default async function CapturePage({ params }: Props) {
     id: string;
     section_id: string | null;
     storage_path: string;
+    ai_analysis: unknown;
     findings?: { id: string; severity: Severity; title: string }[] | null;
   };
   const photos: CapturePhoto[] = ((photoRows ?? []) as unknown as RowWithFindings[]).map((p) => {
@@ -69,7 +71,11 @@ export default async function CapturePage({ params }: Props) {
       storage_path: p.storage_path,
       url: signed[p.storage_path] ?? null,
       status: "uploaded" as const,
-      ai_status: finding ? ("drafted" as const) : ("idle" as const),
+      ai_status: finding
+        ? ("drafted" as const)
+        : isFindingDismissed(p.ai_analysis)
+          ? ("dismissed" as const)
+          : ("idle" as const),
       finding: finding ? { id: finding.id, severity: finding.severity, title: finding.title } : null,
       voice: { state: "idle" as const },
     };

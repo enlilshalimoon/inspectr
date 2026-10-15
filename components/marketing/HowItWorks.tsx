@@ -17,7 +17,7 @@ const steps: Step[] = [
       <>
         <p>
           Open Lookover on your phone, take photos of what you&apos;d normally photograph.
-          Hold the button to record a voice note about what you&apos;re looking at.
+          Tap Voice note and talk about what you&apos;re looking at.
           That&apos;s the whole on-site workflow.
         </p>
         <p className="text-sm text-slate-500 italic">

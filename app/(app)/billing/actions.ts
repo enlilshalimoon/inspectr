@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getStripe, lineItemFor, type PlanKey } from "@/lib/stripe/server";
 
 async function appOrigin(): Promise<string> {
@@ -40,7 +40,9 @@ export async function startCheckout(plan: PlanKey): Promise<void> {
       metadata: { supabase_user_id: user.id },
     });
     customerId = customer.id;
-    await supabase
+    // Billing columns aren't writable with the user's own session (see
+    // db/migrations/0003_lock_billing_columns.sql), so store it server-side.
+    await createServiceClient()
       .from("users")
       .update({ stripe_customer_id: customerId })
       .eq("id", user.id);
