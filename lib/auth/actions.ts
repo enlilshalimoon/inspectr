@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -95,14 +96,19 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
 
   // Branded welcome email via Resend (best-effort — never block signup on it).
   // Email confirmation is disabled, so this is a greeting, not a verification gate.
+  // Sent after the response so a slow email API doesn't hold the new user on
+  // the "Creating account…" spinner.
   const welcome = welcomeEmail({ fullName: parsed.data.fullName, appUrl: origin });
-  await sendSystemEmail({
-    to: parsed.data.email,
-    subject: welcome.subject,
-    html: welcome.html,
-    text: welcome.text,
-  }).catch(() => {
-    /* best-effort: a failed welcome email must not break signup */
+  const welcomeTo = parsed.data.email;
+  after(async () => {
+    await sendSystemEmail({
+      to: welcomeTo,
+      subject: welcome.subject,
+      html: welcome.html,
+      text: welcome.text,
+    }).catch(() => {
+      /* best-effort: a failed welcome email must not break signup */
+    });
   });
 
   // Return success (instead of a server redirect) so the client can fire the
