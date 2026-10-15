@@ -17,6 +17,7 @@ Last updated: 2026-10-15.
 
 ## Open — needs the founder
 
+0. Read `docs/audit-2026-10-15.md` (draft PR `audit-2026-10-15`): product + code audit with a ranked top-10 fix list. Top items: photos default to the Grounds section, Review cards lack their photo, client report shows rejected photos, deleted drafts come back, users can set their own `subscription_status` (RLS), and whether Texas requires the TREC REI 7-6 form.
 1. Press Send on the founder follow-up at /admin (if not done).
 2. Add the `autoMode.allow` rule so the signup monitor can send hello@ replies itself (until then it saves drafts and push-notifies).
 3. Test "Choose existing photos" on a real iPhone (HEIC path untested).
