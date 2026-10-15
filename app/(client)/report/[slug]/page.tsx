@@ -8,7 +8,8 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import { labelForSection } from "@/lib/supabase/sections";
 import { SEVERITY_COLOR, SEVERITY_LABEL, sortBySeverity } from "@/lib/utils/severity";
-import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types";
+import { isOwnStoragePath } from "@/lib/inspection/photos";
+import type { Finding, Severity, SectionType } from "@/lib/supabase/types";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -30,7 +31,7 @@ export default async function PublicReportPage({ params }: Props) {
     notFound();
   }
 
-  const [{ data: inspector }, { data: sections }, { data: findings }, { data: photos }] =
+  const [{ data: inspector }, { data: sections }, { data: findings }] =
     await Promise.all([
       sb
         .from("users")
@@ -51,11 +52,16 @@ export default async function PublicReportPage({ params }: Props) {
         )
         .eq("inspection_id", inspection.id)
         .eq("is_approved", true),
-      sb
-        .from("photos")
-        .select("id, section_id, storage_path")
-        .eq("inspection_id", inspection.id),
     ]);
+
+  // Only photos attached to an approved finding reach the client. Photos the
+  // inspector dropped (finding deleted, never approved) stay private.
+  const reportPhotoIds = Array.from(
+    new Set(((findings as Finding[] | null) ?? []).map((f) => f.photo_id).filter(Boolean) as string[]),
+  );
+  const { data: photos } = reportPhotoIds.length
+    ? await sb.from("photos").select("id, storage_path").in("id", reportPhotoIds)
+    : { data: [] as { id: string; storage_path: string }[] };
 
   const paths = (photos ?? []).map((p) => p.storage_path as string);
   const signed = new Map<string, string>();
@@ -77,13 +83,6 @@ export default async function PublicReportPage({ params }: Props) {
     findingsBySection.get(k)!.push(f);
   }
 
-  const photosBySection = new Map<string | null, (Photo & { url: string | null })[]>();
-  for (const p of (photos as Photo[] | null) ?? []) {
-    const k = (p.section_id as string | null) ?? null;
-    if (!photosBySection.has(k)) photosBySection.set(k, []);
-    photosBySection.get(k)!.push({ ...p, url: photoUrlById.get(p.id) ?? null });
-  }
-
   const allFindings = (findings as Finding[] | null) ?? [];
   const severityCounts = (
     ["safety_hazard", "major_repair", "minor_repair", "monitor", "info"] as Severity[]
@@ -98,20 +97,12 @@ export default async function PublicReportPage({ params }: Props) {
   }
 
   let logoUrl: string | null = null;
-  if (inspector?.company_logo_url) {
+  if (inspector?.company_logo_url && isOwnStoragePath(inspector.company_logo_url, inspection.inspector_id)) {
     const { data: s } = await sb.storage
       .from("report-assets")
       .createSignedUrl(inspector.company_logo_url, 60 * 60);
     logoUrl = s?.signedUrl ?? null;
   }
-
-  const fullAddress = [
-    inspection.property_address,
-    [inspection.property_city, inspection.property_state].filter(Boolean).join(", "),
-    inspection.property_zip,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 
   return (
     <article className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12 space-y-8">
@@ -189,28 +180,12 @@ export default async function PublicReportPage({ params }: Props) {
       {/* Findings by section */}
       {(sections ?? []).map((s) => {
         const sectionFindings = sortBySeverity(findingsBySection.get(s.id) ?? []);
-        const sectionPhotos = photosBySection.get(s.id) ?? [];
-        if (sectionFindings.length === 0 && sectionPhotos.length === 0) return null;
+        if (sectionFindings.length === 0) return null;
         return (
           <section key={s.id} className="space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">
               {labelForSection(s.section_type as SectionType)}
             </h2>
-            {sectionPhotos.length > 0 && (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {sectionPhotos.map((p) => (
-                  <div
-                    key={p.id}
-                    className="aspect-square overflow-hidden rounded-lg bg-slate-100 border border-slate-200"
-                  >
-                    {p.url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.url} alt="" className="h-full w-full object-cover" />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
             <div className="space-y-3">
               {sectionFindings.map((f) => {
                 const c = SEVERITY_COLOR[f.severity];
@@ -232,6 +207,21 @@ export default async function PublicReportPage({ params }: Props) {
                         <span className="font-medium text-slate-700">Recommended action:</span>{" "}
                         {f.recommended_action}
                       </p>
+                    )}
+                    {f.photo_id && photoUrlById.get(f.photo_id) && (
+                      <a
+                        href={photoUrlById.get(f.photo_id)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block pt-1"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photoUrlById.get(f.photo_id)!}
+                          alt={f.title}
+                          className="w-full max-h-96 object-cover rounded-md border border-slate-200 bg-slate-100"
+                        />
+                      </a>
                     )}
                   </div>
                 );

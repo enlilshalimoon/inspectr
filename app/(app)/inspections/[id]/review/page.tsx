@@ -66,8 +66,17 @@ export default async function ReviewPage({ params }: Props) {
     findingsBySection.get(k)!.push(f as Finding);
   }
 
+  const photoUrlById = new Map<string, string | null>();
+  for (const p of photoRows ?? []) {
+    photoUrlById.set(p.id as string, signed.get(p.storage_path as string) ?? null);
+  }
+
+  // Each finding shows its own photo, so the strip only lists photos that
+  // aren't in the report (finding deleted, draft failed, or still drafting).
+  const photosWithFinding = new Set((findings ?? []).map((f) => f.photo_id as string | null));
   const photosBySection = new Map<string | null, (Photo & { url: string | null })[]>();
   for (const p of photoRows ?? []) {
+    if (photosWithFinding.has(p.id as string)) continue;
     const k = (p.section_id as string | null) ?? null;
     if (!photosBySection.has(k)) photosBySection.set(k, []);
     const url = signed.get(p.storage_path as string) ?? null;
@@ -174,6 +183,7 @@ export default async function ReviewPage({ params }: Props) {
         sections.map((s) => {
           const sectionFindings = sortBySeverity(findingsBySection.get(s.id) ?? []);
           const sectionPhotos = photosBySection.get(s.id) ?? [];
+          const sectionPhotoCount = (photoRows ?? []).filter((p) => p.section_id === s.id).length;
           if (sectionPhotos.length === 0 && sectionFindings.length === 0) return null;
           const approvedInSection = sectionFindings.filter((f) => f.is_approved).length;
           return (
@@ -184,7 +194,7 @@ export default async function ReviewPage({ params }: Props) {
                     {labelForSection(s.section_type as SectionType)}
                   </h2>
                   <span className="text-xs text-slate-400 shrink-0">
-                    {sectionPhotos.length} photo{sectionPhotos.length === 1 ? "" : "s"} ·{" "}
+                    {sectionPhotoCount} photo{sectionPhotoCount === 1 ? "" : "s"} ·{" "}
                     {sectionFindings.length} finding{sectionFindings.length === 1 ? "" : "s"}
                   </span>
                 </div>
@@ -197,7 +207,11 @@ export default async function ReviewPage({ params }: Props) {
               </div>
 
               {sectionPhotos.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                <div className="space-y-1">
+                <p className="text-xs text-slate-500">
+                  Not in the report (no finding). Draft one from Capture if needed.
+                </p>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                   {sectionPhotos.map((p) => (
                     <div
                       key={p.id}
@@ -210,6 +224,7 @@ export default async function ReviewPage({ params }: Props) {
                     </div>
                   ))}
                 </div>
+                </div>
               )}
 
               {sectionFindings.length > 0 && (
@@ -220,6 +235,7 @@ export default async function ReviewPage({ params }: Props) {
                       finding={finding}
                       inspectionId={id}
                       userId={user.id}
+                      photoUrl={finding.photo_id ? photoUrlById.get(finding.photo_id) : null}
                     />
                   ))}
                 </div>

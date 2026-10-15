@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { renderInspectionPdf } from "@/lib/pdf/render";
 import { sendFounderEmail, firstInspectionFeedbackEmail } from "@/lib/email/send";
+import { withDismissed } from "@/lib/inspection/photos";
 
 // All actions enforce RLS via the user's session client (no service role).
 // Each one revalidates the review page so server-rendered state stays in sync.
@@ -349,9 +350,29 @@ export async function deleteFinding(input: z.infer<typeof deleteSchema>): Promis
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const supabase = await createClient();
+  const { data: finding } = await supabase
+    .from("findings")
+    .select("photo_id")
+    .eq("id", parsed.data.finding_id)
+    .maybeSingle();
   const { error } = await supabase.from("findings").delete().eq("id", parsed.data.finding_id);
 
   if (error) return { ok: false, error: error.message };
+
+  // Mark the photo so Capture doesn't quietly draft it again next time it opens.
+  if (finding?.photo_id) {
+    const { data: photo } = await supabase
+      .from("photos")
+      .select("ai_analysis")
+      .eq("id", finding.photo_id)
+      .maybeSingle();
+    if (photo) {
+      await supabase
+        .from("photos")
+        .update({ ai_analysis: withDismissed(photo.ai_analysis, true) })
+        .eq("id", finding.photo_id);
+    }
+  }
   revalidatePath(`/inspections/${parsed.data.inspection_id}/review`);
   return { ok: true };
 }

@@ -9,6 +9,13 @@
 // Idempotent: if vision already ran we reuse it; if a finding already exists
 // for the photo we return it instead of creating a duplicate.
 //
+// Section: a photo uploaded with no section ("Auto" on the capture screen) is
+// filed into the section the vision model recognised, creating that section if
+// the inspection doesn't have it yet (pool, fireplace, outbuilding).
+//
+// Dismissed: if the inspector deleted this photo's finding, a plain call does
+// nothing. Only an explicit regenerate (Try again / a new voice note) re-drafts.
+//
 // Auth: relies on the user's Supabase session cookie + RLS. The route never
 // touches another inspector's photos.
 
@@ -16,6 +23,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { analyzePhoto, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
+import {
+  isFindingDismissed,
+  resolveSectionType,
+  sectionOrder,
+  withDismissed,
+} from "@/lib/inspection/photos";
 import type {
   Photo,
   VoiceNote,
@@ -61,8 +74,20 @@ export async function POST(req: NextRequest) {
   // ---------------------------------------------------------------------
   // Stage 1: vision analysis (or reuse if already cached on the row)
   // ---------------------------------------------------------------------
-  let visionAnalysis: VisionAnalysis | null = (photo.ai_analysis ??
-    null) as VisionAnalysis | null;
+  const dismissed = isFindingDismissed(photo.ai_analysis);
+  if (dismissed && !regenerate) {
+    return NextResponse.json({
+      finding: null,
+      dismissed: true,
+      section_id: photo.section_id,
+    });
+  }
+
+  // Cached vision result, minus our own bookkeeping flag. A row holding only
+  // the flag (no real analysis) is treated as not analysed yet.
+  const cached = photo.ai_analysis ? withDismissed(photo.ai_analysis, false) : null;
+  let visionAnalysis: VisionAnalysis | null =
+    cached && "primary_subject" in cached ? (cached as unknown as VisionAnalysis) : null;
 
   // Look up section type for hint
   let sectionType: SectionType | undefined;
@@ -107,6 +132,21 @@ export async function POST(req: NextRequest) {
   }
 
   // ---------------------------------------------------------------------
+  // File an "Auto" photo into the section the vision model recognised.
+  // ---------------------------------------------------------------------
+  let sectionId = photo.section_id;
+  if (!sectionId && visionAnalysis) {
+    const detected = resolveSectionType(visionAnalysis.section);
+    if (detected) {
+      sectionId = await findOrCreateSection(supabase, photo.inspection_id, detected);
+      if (sectionId) {
+        sectionType = detected;
+        await supabase.from("photos").update({ section_id: sectionId }).eq("id", photo.id);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Check for existing finding. Reuse it unless caller asked to regenerate
   // (which happens after a voice note arrives and we want to fold it in).
   // We only delete inspector-untouched drafts — never overwrite edits.
@@ -122,21 +162,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       vision_analysis: visionAnalysis,
       finding: existing,
+      section_id: sectionId,
       reused: true,
     });
   }
-  if (existing && regenerate) {
-    if (existing.inspector_edited || existing.is_approved) {
-      // Inspector already touched this one — don't blow it away.
-      return NextResponse.json({
-        vision_analysis: visionAnalysis,
-        finding: existing,
-        reused: true,
-        regenerate_skipped: true,
-      });
-    }
-    await supabase.from("findings").delete().eq("id", existing.id);
+  if (existing && regenerate && (existing.inspector_edited || existing.is_approved)) {
+    // Inspector already touched this one — don't blow it away.
+    return NextResponse.json({
+      vision_analysis: visionAnalysis,
+      finding: existing,
+      section_id: sectionId,
+      reused: true,
+      regenerate_skipped: true,
+    });
   }
+  // The old draft (if any) is only removed once its replacement is written
+  // below, so a failed re-draft never leaves the photo with no finding.
 
   // ---------------------------------------------------------------------
   // Stage 2: gather any existing voice transcript for the photo
@@ -177,7 +218,7 @@ export async function POST(req: NextRequest) {
   let finding;
   try {
     finding = await draftFinding({
-      section: sectionType ?? visionAnalysis.section,
+      section: sectionType ?? resolveSectionType(visionAnalysis.section) ?? "interior",
       vision_analysis: visionAnalysis,
       transcript,
       property_context,
@@ -194,11 +235,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (!existing) {
+    // Two requests can race for the same photo (capture reopened while a draft
+    // was in flight). If the other one finished first, keep its draft.
+    const { data: raced } = await supabase
+      .from("findings")
+      .select("id, severity, title, description, recommended_action, ai_confidence, is_approved")
+      .eq("photo_id", photo.id)
+      .limit(1);
+    if (raced?.[0]) {
+      return NextResponse.json({
+        vision_analysis: visionAnalysis,
+        finding: raced[0],
+        section_id: sectionId,
+        reused: true,
+      });
+    }
+  }
+
   const { data: inserted, error: insErr } = await supabase
     .from("findings")
     .insert({
       inspection_id: photo.inspection_id,
-      section_id: photo.section_id,
+      section_id: sectionId,
       photo_id: photo.id,
       severity: finding.severity,
       title: finding.title,
@@ -213,16 +272,56 @@ export async function POST(req: NextRequest) {
 
   if (insErr || !inserted) {
     return NextResponse.json(
-      { error: "could not save finding", detail: insErr?.message },
+      {
+        error: "could not save finding",
+        message: "Couldn't save the drafted finding. Tap Try again.",
+        detail: insErr?.message,
+      },
       { status: 500 },
     );
+  }
+
+  if (existing) await supabase.from("findings").delete().eq("id", existing.id);
+  if (dismissed) {
+    await supabase
+      .from("photos")
+      .update({ ai_analysis: withDismissed(visionAnalysis, false) })
+      .eq("id", photo.id);
   }
 
   return NextResponse.json({
     vision_analysis: visionAnalysis,
     finding: inserted,
+    section_id: sectionId,
     reused: false,
   });
+}
+
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+async function findOrCreateSection(
+  supabase: ServerClient,
+  inspectionId: string,
+  type: SectionType,
+): Promise<string | null> {
+  const find = () =>
+    supabase
+      .from("inspection_sections")
+      .select("id")
+      .eq("inspection_id", inspectionId)
+      .eq("section_type", type)
+      .maybeSingle();
+  const { data: found } = await find();
+  if (found) return found.id as string;
+  const { data: created } = await supabase
+    .from("inspection_sections")
+    .insert({ inspection_id: inspectionId, section_type: type, section_order: sectionOrder(type) })
+    .select("id")
+    .single();
+  if (created) return created.id as string;
+  // Lost a race with a parallel photo creating the same section.
+  const { data: again } = await find();
+  return (again?.id as string | undefined) ?? null;
 }
 
 function msg(err: unknown): string {

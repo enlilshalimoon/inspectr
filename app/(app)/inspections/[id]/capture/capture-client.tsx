@@ -15,9 +15,16 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { SEVERITY_COLOR, SEVERITY_LABEL } from "@/lib/utils/severity";
+import { listPending, removePending, savePending } from "@/lib/inspection/pending-uploads";
+import { labelForSection } from "@/lib/supabase/sections";
 import type { SectionType, Severity } from "@/lib/supabase/types";
 
-type AIStatus = "idle" | "processing" | "drafted" | "failed";
+// "dismissed": the inspector deleted this photo's finding. It stays out of the
+// report and is not re-drafted unless they tap "Draft again".
+type AIStatus = "idle" | "processing" | "drafted" | "failed" | "dismissed";
+
+// Section select value meaning "let the AI file it".
+const AUTO_SECTION = "";
 
 export type SectionOption = { id: string; type: SectionType; label: string };
 export type CapturePhoto = {
@@ -44,6 +51,8 @@ export type CapturePhoto = {
   localUrl?: string;
   // Kept so "Retry" can re-send the same photo instead of forcing a re-shoot.
   rawFile?: File;
+  // The photo is also stored on the device until it uploads.
+  savedLocally?: boolean;
   errorMessage?: string;
   aiErrorMessage?: string;
 };
@@ -56,23 +65,88 @@ type Props = {
 };
 
 export function CaptureClient({ inspectionId, userId, sections, initialPhotos }: Props) {
-  const [photos, setPhotos] = useState<CapturePhoto[]>(
-    initialPhotos.map((p) => ({ ...p, ai_status: "idle", voice: { state: "idle" } })),
-  );
-  const [currentSectionId, setCurrentSectionId] = useState<string>(
-    sections[0]?.id ?? "",
-  );
+  const [photos, setPhotos] = useState<CapturePhoto[]>(initialPhotos);
+  // Default is Auto: the AI files each photo into the section it shows. The
+  // old default (the first section, Grounds) filed every photo there unless
+  // the inspector changed the dropdown before each shot.
+  const [currentSectionId, setCurrentSectionId] = useState<string>(AUTO_SECTION);
+  const [sectionList, setSectionList] = useState<SectionOption[]>(sections);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const supabase = useMemo(() => createClient(), []);
 
-  // Backfill: kick AI processing for any existing photo that hasn't been drafted yet.
+  // Latest photos for event handlers registered once (online, beforeunload).
+  const photosRef = useRef(photos);
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+
+  // On open: backfill AI drafts for photos that don't have one yet (but never
+  // for ones whose finding the inspector deleted), and resend any photo still
+  // waiting on this device from an earlier visit.
   useEffect(() => {
     for (const p of initialPhotos) {
-      if (p.status === "uploaded" && !p.finding) {
+      if (p.status === "uploaded" && !p.finding && p.ai_status !== "dismissed") {
         void processPhotoAI(p.id);
       }
     }
+    void (async () => {
+      const known = new Set(initialPhotos.map((p) => p.id));
+      for (const item of await listPending(inspectionId)) {
+        if (known.has(item.photoId)) {
+          // Uploaded last time; only the local cleanup didn't happen.
+          await removePending(item.photoId);
+          continue;
+        }
+        const file = new File([item.file], item.fileName, { type: item.file.type });
+        setPhotos((prev) =>
+          prev.some((p) => p.id === item.photoId)
+            ? prev
+            : [
+                {
+                  id: item.photoId,
+                  section_id: item.sectionId || null,
+                  storage_path: item.storagePath,
+                  url: null,
+                  localUrl: URL.createObjectURL(file),
+                  rawFile: file,
+                  savedLocally: true,
+                  status: "uploading",
+                  ai_status: "idle",
+                  voice: { state: "idle" },
+                },
+                ...prev,
+              ],
+        );
+        await sendPhoto(item.photoId, file, item.sectionId, item.storagePath);
+      }
+    })();
+
+    // Back in service: resend everything that failed.
+    function onOnline() {
+      for (const p of photosRef.current) {
+        if (p.status === "failed" && p.rawFile) void retryUpload(p);
+      }
+    }
+    // Warn before leaving while something would be lost or interrupted.
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      const busy = photosRef.current.some(
+        (p) =>
+          p.status === "uploading" ||
+          (p.status === "failed" && !p.savedLocally) ||
+          ["recording", "uploading"].includes(p.voice?.state ?? "idle"),
+      );
+      if (busy) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("online", onOnline);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -80,8 +154,28 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
     setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }
 
+  // At most a few drafts at once. Picking 20 photos (or reopening an
+  // inspection with many undrafted ones) used to fire every AI call at once
+  // and trip the AI provider's rate limits.
+  const aiQueue = useRef<{ running: number; waiting: (() => void)[] }>({ running: 0, waiting: [] });
+  async function withAISlot<T>(fn: () => Promise<T>): Promise<T> {
+    const q = aiQueue.current;
+    if (q.running >= 3) await new Promise<void>((resolve) => q.waiting.push(resolve));
+    q.running += 1;
+    try {
+      return await fn();
+    } finally {
+      q.running -= 1;
+      q.waiting.shift()?.();
+    }
+  }
+
   async function processPhotoAI(photoId: string, regenerate = false) {
     patchPhoto(photoId, { ai_status: "processing", aiErrorMessage: undefined });
+    await withAISlot(() => runPhotoAI(photoId, regenerate));
+  }
+
+  async function runPhotoAI(photoId: string, regenerate: boolean) {
     try {
       const res = await fetch("/api/ai/process-photo", {
         method: "POST",
@@ -101,8 +195,12 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
               : (json.error ?? "AI failed")),
         );
       }
+      if (json.section_id) {
+        patchPhoto(photoId, { section_id: json.section_id });
+        await addSectionIfNew(json.section_id);
+      }
       patchPhoto(photoId, {
-        ai_status: "drafted",
+        ai_status: json.dismissed ? "dismissed" : "drafted",
         finding: json.finding ?? null,
         aiErrorMessage: undefined,
       });
@@ -113,6 +211,24 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         aiErrorMessage: err instanceof Error ? err.message : "Analysis failed.",
       });
     }
+  }
+
+  // The AI may file a photo into a section the inspection didn't have yet
+  // (pool, fireplace…). Add it to the picker so counts and labels line up.
+  async function addSectionIfNew(sectionId: string) {
+    if (sectionList.some((s) => s.id === sectionId)) return;
+    const { data } = await supabase
+      .from("inspection_sections")
+      .select("id, section_type")
+      .eq("id", sectionId)
+      .maybeSingle();
+    if (!data) return;
+    const type = data.section_type as SectionType;
+    setSectionList((prev) =>
+      prev.some((s) => s.id === sectionId)
+        ? prev
+        : [...prev, { id: sectionId, type, label: labelForSection(type) }],
+    );
   }
 
   // ----- Photo upload -----------------------------------------------------
@@ -155,38 +271,54 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
   // the card once chosen, so a retry overwrites the same object and row instead
   // of orphaning a storage object or creating a duplicate photo and AI draft.
   async function sendPhoto(photoId: string, rawFile: File, sectionId: string, pinnedPath?: string) {
+    let file: File = rawFile;
     try {
       // Normalize before upload: fixes iPhone HEIC (Safari can decode it even
       // though Claude can't read it), corrects EXIF rotation, and shrinks a
       // 4 MB camera original to a few hundred KB — which is most of the wait
       // on both the upload and the vision call.
-      const file = await prepareImage(rawFile);
+      file = await prepareImage(rawFile);
       const storagePath =
         pinnedPath || `${userId}/${inspectionId}/${photoId}.${guessExtension(file)}`;
-      patchPhoto(photoId, { storage_path: storagePath });
+      // Keep a copy on the device until the server has it, so a dropped
+      // signal or a closed tab doesn't lose a photo that only ever existed here.
+      const savedLocally = await savePending({
+        photoId,
+        inspectionId,
+        sectionId,
+        storagePath,
+        file,
+        fileName: file.name,
+        createdAt: Date.now(),
+      });
+      patchPhoto(photoId, { storage_path: storagePath, rawFile: file, savedLocally });
 
-      const { error: uploadErr } = await supabase.storage
-        .from("inspection-media")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          contentType: file.type || "image/jpeg",
-          upsert: true,
-        });
-      if (uploadErr) throw uploadErr;
+      // A couple of quiet retries before bothering the inspector.
+      await withRetries(async () => {
+        const { error: uploadErr } = await supabase.storage
+          .from("inspection-media")
+          .upload(storagePath, file, {
+            cacheControl: "3600",
+            contentType: file.type || "image/jpeg",
+            upsert: true,
+          });
+        if (uploadErr) throw uploadErr;
 
-      const { data: row, error: insErr } = await supabase
-        .from("photos")
-        .upsert({
-          id: photoId,
-          inspection_id: inspectionId,
-          section_id: sectionId || null,
-          storage_path: storagePath,
-          taken_at: new Date().toISOString(),
-          upload_status: "uploaded",
-        })
-        .select("id")
-        .single();
-      if (insErr || !row) throw insErr ?? new Error("insert failed");
+        const { data: row, error: insErr } = await supabase
+          .from("photos")
+          .upsert({
+            id: photoId,
+            inspection_id: inspectionId,
+            section_id: sectionId || null,
+            storage_path: storagePath,
+            taken_at: new Date().toISOString(),
+            upload_status: "uploaded",
+          })
+          .select("id")
+          .single();
+        if (insErr || !row) throw insErr ?? new Error("insert failed");
+      });
+      await removePending(photoId);
 
       const { data: signed } = await supabase.storage
         .from("inspection-media")
@@ -201,6 +333,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
                 url: signed?.signedUrl ?? null,
                 status: "uploaded",
                 rawFile: undefined,
+                savedLocally: false,
               }
             : p,
         ),
@@ -215,6 +348,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
           p.id === photoId
             ? {
                 ...p,
+                rawFile: file,
                 status: "failed",
                 errorMessage: err instanceof Error ? err.message : String(err),
               }
@@ -226,6 +360,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
 
   async function deletePhoto(photo: CapturePhoto) {
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    await removePending(photo.id);
     if (photo.storage_path) {
       await supabase.storage.from("inspection-media").remove([photo.storage_path]);
     }
@@ -316,14 +451,17 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       voice: { state: "uploading", duration_seconds: duration },
     });
     try {
-      const { error: upErr } = await supabase.storage
-        .from("inspection-media")
-        .upload(storagePath, blob, { contentType: blob.type, upsert: false });
-      if (upErr) throw upErr;
+      await withRetries(async () => {
+        const { error: upErr } = await supabase.storage
+          .from("inspection-media")
+          .upload(storagePath, blob, { contentType: blob.type, upsert: true });
+        if (upErr) throw upErr;
+      });
 
       const { data: vn, error: insErr } = await supabase
         .from("voice_notes")
         .insert({
+          id: voiceId,
           inspection_id: inspectionId,
           photo_id: photo.id,
           section_id: photo.section_id,
@@ -334,51 +472,79 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         .select("id")
         .single();
       if (insErr || !vn) throw insErr ?? new Error("voice insert failed");
-
-      patchPhoto(photo.id, {
-        voice: {
-          state: "transcribing",
-          duration_seconds: duration,
-          voice_note_id: vn.id as string,
-          storage_path: storagePath,
-        },
-      });
-
-      // Hit the transcription route
-      const res = await fetch("/api/ai/transcribe", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ voice_note_id: vn.id }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "transcribe failed");
-
-      patchPhoto(photo.id, {
-        voice: {
-          state: "done",
-          duration_seconds: duration,
-          voice_note_id: vn.id as string,
-          storage_path: storagePath,
-          transcript: json.transcript ?? "",
-        },
-      });
-
-      // Re-run finding generation now that we have a transcript
-      void processPhotoAI(photo.id, true);
     } catch (err) {
       console.error("voice upload failed:", err);
       patchPhoto(photo.id, {
         voice: {
           state: "failed",
-          error: "Voice note didn't go through. Tap Voice note to record it again.",
+          error: "Voice note didn't upload. Check your signal and tap Voice note to record it again.",
+        },
+      });
+      return;
+    }
+    await transcribeAndDraft(photo.id, voiceId, storagePath, duration);
+  }
+
+  // Separate from the upload so a failed transcription can be retried from the
+  // saved recording instead of asking the inspector to say it all again.
+  async function transcribeAndDraft(
+    photoId: string,
+    voiceNoteId: string,
+    storagePath: string,
+    duration?: number,
+  ) {
+    const base = { voice_note_id: voiceNoteId, storage_path: storagePath, duration_seconds: duration };
+    patchPhoto(photoId, { voice: { state: "transcribing", ...base } });
+    try {
+      const res = await fetch("/api/ai/transcribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ voice_note_id: voiceNoteId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "transcribe failed");
+
+      // "Re-record" replaces: drop this photo's older voice notes so a
+      // corrected note isn't drafted together with the one it corrects.
+      const { data: older } = await supabase
+        .from("voice_notes")
+        .select("id, storage_path")
+        .eq("photo_id", photoId)
+        .neq("id", voiceNoteId);
+      if (older?.length) {
+        await supabase.from("voice_notes").delete().in("id", older.map((o) => o.id as string));
+        await supabase.storage
+          .from("inspection-media")
+          .remove(older.map((o) => o.storage_path as string));
+      }
+
+      patchPhoto(photoId, {
+        voice: { state: "done", transcript: json.transcript ?? "", ...base },
+      });
+
+      // Re-run finding generation now that we have a transcript
+      void processPhotoAI(photoId, true);
+    } catch (err) {
+      console.error("transcription failed:", err);
+      patchPhoto(photoId, {
+        voice: {
+          state: "failed",
+          error: "Couldn't transcribe the voice note. Your recording is saved.",
+          ...base,
         },
       });
     }
   }
 
+  function retryTranscription(photo: CapturePhoto) {
+    const v = photo.voice;
+    if (!v?.voice_note_id || !v.storage_path) return;
+    void transcribeAndDraft(photo.id, v.voice_note_id, v.storage_path, v.duration_seconds);
+  }
+
   const recordersRef = useRef<Map<string, MediaRecorder>>(new Map());
 
-  const currentSection = sections.find((s) => s.id === currentSectionId);
+  const currentSection = sectionList.find((s) => s.id === currentSectionId);
   const countsBySection = countByKey(photos, (p) => p.section_id ?? "_unassigned");
   const draftedCount = photos.filter((p) => p.finding).length;
   const processingCount = photos.filter(
@@ -418,7 +584,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
               htmlFor="capture-section"
               className="block text-xs uppercase tracking-wide text-slate-500"
             >
-              Current section · tap to change
+              Section · tap to change
             </label>
             <select
               id="capture-section"
@@ -426,7 +592,8 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
               onChange={(e) => setCurrentSectionId(e.target.value)}
               className="max-w-full text-base font-medium text-slate-900 bg-white border border-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-200 rounded-md"
             >
-              {sections.map((s) => {
+              <option value={AUTO_SECTION}>Auto: AI picks the section</option>
+              {sectionList.map((s) => {
                 const n = countsBySection.get(s.id) ?? 0;
                 return (
                   <option key={s.id} value={s.id}>
@@ -471,7 +638,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
           className="w-full flex items-center justify-center gap-3 h-20 rounded-xl bg-slate-900 text-white font-medium text-lg hover:bg-slate-800 active:bg-slate-700 transition-colors shadow-sm"
         >
           <Camera className="h-6 w-6" />
-          Take photo for {currentSection?.label ?? "section"}
+          {currentSection ? `Take photo for ${currentSection.label}` : "Take photo"}
         </button>
         <button
           type="button"
@@ -503,10 +670,14 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
             <PhotoCard
               key={p.id}
               photo={p}
-              sectionLabel={sections.find((s) => s.id === p.section_id)?.label ?? "Unassigned"}
+              sectionLabel={
+                sectionList.find((s) => s.id === p.section_id)?.label ??
+                (p.status === "uploaded" && p.ai_status !== "processing" ? "Unassigned" : "Auto")
+              }
               onDelete={() => deletePhoto(p)}
               onRetry={() => retryUpload(p)}
               onRetryAI={() => processPhotoAI(p.id, true)}
+              onRetryVoice={() => retryTranscription(p)}
               onStartRecord={() => startRecording(p)}
               onStopRecord={() => stopRecording(p)}
             />
@@ -526,6 +697,7 @@ function PhotoCard({
   onDelete,
   onRetry,
   onRetryAI,
+  onRetryVoice,
   onStartRecord,
   onStopRecord,
 }: {
@@ -534,6 +706,7 @@ function PhotoCard({
   onDelete: () => void;
   onRetry: () => void;
   onRetryAI: () => void;
+  onRetryVoice: () => void;
   onStartRecord: () => void;
   onStopRecord: () => void;
 }) {
@@ -554,7 +727,9 @@ function PhotoCard({
           )}
           {photo.status === "failed" && (
             <Overlay tone="error">
-              Upload failed. Check your signal.
+              {photo.savedLocally
+                ? "Not uploaded yet. Saved on this phone; it sends when you're back in service."
+                : "Upload failed. Check your signal."}
               <button
                 type="button"
                 onClick={onRetry}
@@ -580,7 +755,7 @@ function PhotoCard({
         {/* AI status row */}
         {photo.status === "uploaded" && (
           <div className="flex items-center justify-between gap-2 text-xs">
-            <AIStatusBadge status={photo.ai_status} finding={photo.finding} />
+            <AIStatusBadge status={photo.ai_status} finding={photo.finding} onDraftAgain={onRetryAI} />
             <VoiceButton
               state={photo.voice?.state ?? "idle"}
               onStart={onStartRecord}
@@ -617,7 +792,18 @@ function PhotoCard({
           <p className="text-xs text-slate-400 italic">Uploading voice note…</p>
         )}
         {photo.voice?.state === "failed" && photo.voice.error && (
-          <p className="text-xs text-red-700">{photo.voice.error}</p>
+          <div className="text-xs text-red-700 space-y-1">
+            <p>{photo.voice.error}</p>
+            {photo.voice.voice_note_id && (
+              <button
+                type="button"
+                onClick={onRetryVoice}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-300 bg-white text-red-800 hover:bg-red-100"
+              >
+                <RotateCcw className="h-3 w-3" /> Retry transcription
+              </button>
+            )}
+          </div>
         )}
 
         {/* AI finding preview */}
@@ -640,10 +826,25 @@ function PhotoCard({
 function AIStatusBadge({
   status,
   finding,
+  onDraftAgain,
 }: {
   status: AIStatus;
   finding?: CapturePhoto["finding"];
+  onDraftAgain: () => void;
 }) {
+  if (status === "dismissed")
+    return (
+      <span className="inline-flex items-center gap-2 text-slate-500">
+        Not in report
+        <button
+          type="button"
+          onClick={onDraftAgain}
+          className="underline underline-offset-2 hover:text-slate-800"
+        >
+          Draft again
+        </button>
+      </span>
+    );
   if (status === "idle")
     return <span className="inline-flex items-center gap-1 text-slate-400">— waiting</span>;
   if (status === "processing")
@@ -707,6 +908,19 @@ function Overlay({ tone, children }: { tone: "dark" | "error"; children: React.R
       {children}
     </div>
   );
+}
+
+// Run fn, retrying twice with a short backoff. Most upload failures on a
+// phone are a momentary signal drop.
+async function withRetries(fn: () => Promise<void>, attempts = 3): Promise<void> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i >= attempts) throw err;
+      await new Promise((resolve) => setTimeout(resolve, i * 2000));
+    }
+  }
 }
 
 function countByKey<T>(items: T[], key: (t: T) => string): Map<string, number> {

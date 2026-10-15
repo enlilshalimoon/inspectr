@@ -9,6 +9,7 @@ import { InspectionReportDoc, type ReportData } from "./report";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Finding, Photo } from "@/lib/supabase/types";
+import { isOwnStoragePath } from "@/lib/inspection/photos";
 
 type Mode = "session" | "service";
 
@@ -116,7 +117,7 @@ export async function loadReportData(
 
   // Fetch the logo as base64 so react-pdf can embed it
   let logoData: string | null = null;
-  if (inspector?.company_logo_url) {
+  if (inspector?.company_logo_url && isOwnStoragePath(inspector.company_logo_url, insp.inspector_id)) {
     try {
       const { data: signed } = await supabase.storage
         .from("report-assets")

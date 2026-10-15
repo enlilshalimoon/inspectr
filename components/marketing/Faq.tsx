@@ -46,8 +46,9 @@ const items: Item[] = [
     question: "What if I'm offline at the property?",
     answer: (
       <p>
-        Capture works offline. Photos and voice notes queue locally and sync the moment
-        you&apos;re back on service. You won&apos;t lose anything.
+        Keep shooting. Every photo is saved on your phone until it uploads, and
+        Lookover sends it as soon as you&apos;re back in service. Drafting and voice
+        notes need a connection, so those catch up when the photos do.
       </p>
     ),
   },

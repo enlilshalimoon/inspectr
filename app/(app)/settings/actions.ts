@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { isOwnStoragePath } from "@/lib/inspection/photos";
 
 const schema = z.object({
   full_name: z.string().min(1, "Your name is required.").max(120),
@@ -77,6 +78,9 @@ export async function updateLogo(input: z.infer<typeof logoSchema>): Promise<Set
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
+  if (parsed.data.storage_path && !isOwnStoragePath(parsed.data.storage_path, user.id)) {
+    return { ok: false, error: "Invalid logo path." };
+  }
 
   const { error } = await supabase
     .from("users")
