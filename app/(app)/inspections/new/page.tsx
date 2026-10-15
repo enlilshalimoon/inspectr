@@ -6,7 +6,8 @@ export default function NewInspectionPage() {
       <div className="space-y-2 mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">New inspection</h1>
         <p className="text-sm text-slate-500">
-          Property and client info. You can edit any of this later. Address is the only required field.
+          Address is all you need to start. Just trying Lookover out? Use any
+          address, even your own, and add a few photos you already have.
         </p>
       </div>
       <NewInspectionForm />
