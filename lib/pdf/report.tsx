@@ -245,6 +245,13 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
   ]
     .filter(Boolean)
     .join(" · ");
+  const { company_name, license_number, license_state } = data.inspector;
+  const signatureLine = [
+    company_name,
+    license_number && `License ${license_number}${license_state ? ` (${license_state})` : ""}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Document
@@ -276,9 +283,11 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
             <View style={{ flex: 1 }}>
               <Text style={styles.coverLabel}>Inspector</Text>
               <Text style={styles.coverValue}>{data.inspector.full_name}</Text>
-              <Text style={[styles.coverValue, { fontSize: 11, color: COLOR.slate700 }]}>
-                {data.inspector.company_name}
-              </Text>
+              {data.inspector.company_name && (
+                <Text style={[styles.coverValue, { fontSize: 11, color: COLOR.slate700 }]}>
+                  {data.inspector.company_name}
+                </Text>
+              )}
               {data.inspector.license_number && (
                 <Text style={{ fontSize: 9, color: COLOR.slate500, marginTop: 4 }}>
                   License {data.inspector.license_number}
@@ -427,11 +436,9 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
         <View style={{ marginTop: 32 }}>
           <Text style={styles.h2}>Inspector signature</Text>
           <Text style={styles.body}>{data.inspector.full_name}</Text>
-          <Text style={[styles.body, { color: COLOR.slate500 }]}>
-            {data.inspector.company_name}
-            {data.inspector.license_number ? ` · License ${data.inspector.license_number}` : ""}
-            {data.inspector.license_state ? ` (${data.inspector.license_state})` : ""}
-          </Text>
+          {signatureLine && (
+            <Text style={[styles.body, { color: COLOR.slate500 }]}>{signatureLine}</Text>
+          )}
           <Text style={[styles.body, { color: COLOR.slate500, marginTop: 4 }]}>
             Finalized {formatDate(data.finalized_at)}
           </Text>
