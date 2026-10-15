@@ -347,17 +347,32 @@ export function founderCheckinEmail(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Reply-fix follow-up — one-off apology to everyone who got a founder email while
-// its reply-to was broken. Sent from the /admin button (see lib/admin/reply-fix.ts).
+// Founder follow-up — one personal note per signup, sent from the /admin button
+// (see lib/admin/followup.ts). "lifetime": they finalized a real report, so they're
+// comped for life and asked what they thought. "feedback": everyone else, asked
+// what they thought and what got in the way.
 // ---------------------------------------------------------------------------
-export function replyFixFollowupEmail(opts: { firstName?: string | null }) {
+export type FollowupVariant = "lifetime" | "feedback";
+
+export function followupEmail(opts: { variant: FollowupVariant; firstName?: string | null }) {
   const name = opts.firstName?.trim() ? opts.firstName.trim().split(" ")[0] : "there";
-  const paragraphs = [
-    `Hey ${name},`,
-    `Enlil again, from Lookover. Quick and slightly embarrassing one: the email I sent you after you signed up had a broken reply address. If you hit reply, it bounced, and I never saw it.`,
-    `If you did write back, I'm sorry. I'd still really like to hear it. Replying to this one comes straight to my personal inbox, and I read every one.`,
-    `And if you never got around to trying it, no hard feelings. One honest line on why would help me a lot: bad timing, not a fit for how you work, or something didn't work.`,
-  ];
+  let subject: string;
+  let paragraphs: string[];
+  if (opts.variant === "lifetime") {
+    subject = "you're on Lookover for life";
+    paragraphs = [
+      `Hey ${name},`,
+      `Enlil here, I built Lookover. You actually ran a real inspection through it, which puts you in a pretty small group, so I've switched your account to free for life. No trial clock, nothing to cancel.`,
+      `All I'd ask in return: what did you think? What worked, what was annoying, and what would it need before you'd use it on every inspection? Just hit reply, even one line helps.`,
+    ];
+  } else {
+    subject = "what did you think of Lookover?";
+    paragraphs = [
+      `Hey ${name},`,
+      `Enlil here, I built Lookover. You signed up a little while back and I'd really like your honest take, even if you never got far with it.`,
+      `What did you think, and what got in the way? Bad timing, not a fit for how you work, or something didn't work? Just hit reply, one line is plenty. I read every one.`,
+    ];
+  }
   const p = "margin:0 0 14px";
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#ffffff">
@@ -366,7 +381,7 @@ export function replyFixFollowupEmail(opts: { firstName?: string | null }) {
   <p style="margin:18px 0 0">— Enlil<br><span style="color:#64748b">Founder, Lookover · uselookover.com</span></p>
 </div></body></html>`;
   const text = `${paragraphs.join("\n\n")}\n\n— Enlil\nFounder, Lookover · uselookover.com`;
-  return { subject: "my reply address was broken", html, text };
+  return { subject, html, text };
 }
 
 function escapeHtml(s: string): string {

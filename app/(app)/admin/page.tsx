@@ -8,10 +8,10 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/is-admin";
-import { getReplyFixRecipients, listAllAuthUsers } from "@/lib/admin/reply-fix";
+import { getFollowupRecipients, listAllAuthUsers } from "@/lib/admin/followup";
 import { describeSource, type SignupSource } from "@/lib/attribution";
 import { FOUNDER_REPLY_TO } from "@/lib/email/send";
-import { ReplyFixButton } from "./reply-fix-button";
+import { FollowupButton } from "./followup-button";
 
 export const metadata = {
   title: "Admin",
@@ -89,7 +89,7 @@ export default async function AdminPage() {
 
   const signups: Signup[] = (recentSignupsRaw.data ?? []) as Signup[];
   const authUsers = await listAllAuthUsers(admin);
-  const replyFix = await getReplyFixRecipients(admin, authUsers);
+  const followup = await getFollowupRecipients(admin, authUsers);
   const sourceByUser = new Map(
     authUsers.map((u) => [
       u.id,
@@ -246,27 +246,35 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      {/* Reply-fix follow-up — one-off apology for the bounced reply-to */}
+      {/* Founder follow-up — lifetime for finishers, feedback ask for the rest */}
       <section className="space-y-3">
         <h2 className="text-sm uppercase tracking-wide text-slate-500 font-medium">
-          Reply-fix follow-up
+          Founder follow-up
         </h2>
         <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 text-sm">
           <p className="text-slate-600">
-            &ldquo;My reply address was broken&rdquo; email, from enlil@, replies to{" "}
-            {FOUNDER_REPLY_TO}. {replyFix.alreadySent} already sent.
+            Personal email from enlil@, replies go to {FOUNDER_REPLY_TO}.{" "}
+            <strong>Lifetime</strong> = finalized a report: switched to free for life and asked
+            what they thought. <strong>Feedback</strong> = everyone else: asked what they
+            thought and what got in the way. {followup.alreadySent} already sent.
           </p>
-          {replyFix.pending.length > 0 && (
+          {followup.pending.length > 0 && (
             <ul className="font-mono text-xs text-slate-700 space-y-0.5">
-              {replyFix.pending.map((r) => (
+              {followup.pending.map((r) => (
                 <li key={r.id}>
+                  <span className={r.variant === "lifetime" ? "text-green-700" : "text-slate-500"}>
+                    [{r.variant}]
+                  </span>{" "}
                   {r.email}
                   {r.fullName ? ` (${r.fullName})` : ""}
                 </li>
               ))}
             </ul>
           )}
-          <ReplyFixButton count={replyFix.pending.length} />
+          <FollowupButton
+            count={followup.pending.length}
+            lifetime={followup.pending.filter((r) => r.variant === "lifetime").length}
+          />
         </div>
       </section>
 
