@@ -159,7 +159,11 @@ Shared primary text (both ads):
 - **Ad A — Phone capture** · Headline: `Your whole report, captured on your phone.` · URL: `https://www.uselookover.com/signup?utm_source=meta&utm_medium=cpc&utm_campaign=tx-relaunch-1&utm_content=phone-capture`
 - **Ad B — Client report** · Headline: `The report your client actually wants.` · URL: `https://www.uselookover.com/signup?utm_source=meta&utm_medium=cpc&utm_campaign=tx-relaunch-1&utm_content=client-report`
 
-Description (both): `14-day free trial. First 50 lock in $79/mo founding pricing for life.`
+Description (both): `$79/mo founding price for the first 50 · 14-day free trial, no card`
+
+> **Superseded 2026-10-15:** don't hard-code UTMs in the URL. Use the plain URL plus the
+> Meta URL-parameter string in `marketing/ads/round-2.md` §1 (shows per-ad in /admin).
+> Avoid "for life" wording in cold-ad copy.
 
 **Copy rule:** never "free for life" (see `marketing/OFFER-POLICY.md`).
 
@@ -262,7 +266,7 @@ When iterating off a winner, change ONE major dimension (type weight, hero numbe
 - Cap any single ad set at $50/day without explicit founder approval.
 - Targeting stays narrow (TX, AND-interests) unless explicitly broadened by the founder.
 - Never use copy that mentions cost estimates, repairs, or buyer-facing guidance.
-- **Never dangle "free for life" in ads.** Free-for-life is an earned, capped design-partner offer (see `marketing/OFFER-POLICY.md`) — not a cold-traffic hook. Ads lead with product value + "14-day free trial · first 50 lock in $79/mo founding pricing for life." All offer/pricing language must match OFFER-POLICY.md.
+- **Never dangle "free for life" in ads.** Free-for-life is an earned, capped design-partner offer (see `marketing/OFFER-POLICY.md`) — not a cold-traffic hook. Ads lead with product value + "$79/mo founding price for the first 50 · 14-day free trial, no card." All offer/pricing language must match OFFER-POLICY.md.
 - Never auto-approve Higgsfield output with visible misspellings of `Lookover`, `InterNACHI`, `SOP`, or `Texas`. Regen or escalate.
 - Don't reply to comments or DMs on the Page or ads — flag urgent items to the founder.
 - Don't modify the website code, pixel install, or privacy policy. Read-only on the codebase.
