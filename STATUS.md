@@ -17,6 +17,7 @@ Last updated: 2026-10-15.
 
 ## Open — needs the founder
 
+0a. **State report rules (2026-10-15):** `docs/state-report-rules-2026-10-15.md`. Texas is the only state with a mandated verbatim form (TREC REI 7-6), so Lookover's PDF can't be a Texas inspector's deliverable until we build an REI 7-6 output. The other states allow a custom format, but most require a full systems inventory (inspected / not inspected / why), not findings only, plus license, signature, SOP and limitations statements. Suggested next ad states: FL, CA, NC, GA, AZ, OH, PA, VA. Inspector counts are unconfirmed.
 0. **Audit fixes: merged and live 2026-10-15 (PR #2).** Audit in `docs/audit-2026-10-15.md`; items 1–6 fixed. The billing column lock (`db/migrations/0003_lock_billing_columns.sql`) **was run in Supabase on 2026-10-15** (users can no longer mark themselves paid). Still to do: (a) on an iPhone: new inspection → leave section on "Auto" → shoot an electrical panel and a sink → check they land under Electrical / Plumbing, Review shows each photo on its card, delete one finding and reopen Capture (should say "Not in report", not re-draft), airplane mode mid-upload then off (photo should send itself). (b) Ask Kristy how she delivers reports in Texas (TREC REI 7-6 form or custom?). Still open from the audit: items 7–10 (see doc).
 1. Press Send on the founder follow-up at /admin (if not done).
 2. Add the `autoMode.allow` rule so the signup monitor can send hello@ replies itself (until then it saves drafts and push-notifies).
