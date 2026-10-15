@@ -1,8 +1,11 @@
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { captureAttribution } from "@/lib/attribution";
 
 export async function proxy(request: NextRequest) {
-  return updateSession(request);
+  const response = await updateSession(request);
+  captureAttribution(request, response);
+  return response;
 }
 
 export const config = {

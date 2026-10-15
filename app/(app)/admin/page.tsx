@@ -8,7 +8,8 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/is-admin";
-import { getReplyFixRecipients } from "@/lib/admin/reply-fix";
+import { getReplyFixRecipients, listAllAuthUsers } from "@/lib/admin/reply-fix";
+import { describeSource, type SignupSource } from "@/lib/attribution";
 import { FOUNDER_REPLY_TO } from "@/lib/email/send";
 import { ReplyFixButton } from "./reply-fix-button";
 
@@ -87,7 +88,14 @@ export default async function AdminPage() {
   ]);
 
   const signups: Signup[] = (recentSignupsRaw.data ?? []) as Signup[];
-  const replyFix = await getReplyFixRecipients(admin);
+  const authUsers = await listAllAuthUsers(admin);
+  const replyFix = await getReplyFixRecipients(admin, authUsers);
+  const sourceByUser = new Map(
+    authUsers.map((u) => [
+      u.id,
+      describeSource(u.user_metadata?.signup_source as SignupSource | undefined),
+    ]),
+  );
 
   // One round-trip for per-user inspection counts (so the table shows engagement)
   const userIds = signups.map((s) => s.id);
@@ -194,13 +202,14 @@ export default async function AdminPage() {
                 <Th>Onboarded</Th>
                 <Th align="right">Inspections</Th>
                 <Th>Trial ends</Th>
+                <Th>Source</Th>
                 <Th>Signed up</Th>
               </tr>
             </thead>
             <tbody>
               {signups.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                     No signups yet. They&apos;ll appear here in real time.
                   </td>
                 </tr>
@@ -225,6 +234,7 @@ export default async function AdminPage() {
                     </Td>
                     <Td align="right">{countsByUser[s.id] ?? 0}</Td>
                     <Td>{formatTrialEnds(s.trial_ends_at)}</Td>
+                    <Td>{sourceByUser.get(s.id) ?? <Muted>—</Muted>}</Td>
                     <Td>
                       <span className="text-slate-500">{formatRelative(s.created_at)}</span>
                     </Td>

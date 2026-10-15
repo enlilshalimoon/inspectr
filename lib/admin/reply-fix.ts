@@ -15,17 +15,29 @@ export type ReplyFixRecipient = {
   appMetadata: Record<string, unknown>;
 };
 
-export async function getReplyFixRecipients(admin: ServiceClient): Promise<{
-  pending: ReplyFixRecipient[];
-  alreadySent: number;
-}> {
-  const authUsers = [];
+export type AuthUser = Awaited<
+  ReturnType<ServiceClient["auth"]["admin"]["listUsers"]>
+>["data"]["users"][number];
+
+export async function listAllAuthUsers(admin: ServiceClient): Promise<AuthUser[]> {
+  const authUsers: AuthUser[] = [];
   for (let page = 1; ; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
     if (error) throw new Error(`listUsers failed: ${error.message}`);
     authUsers.push(...data.users);
     if (data.users.length < 200) break;
   }
+  return authUsers;
+}
+
+export async function getReplyFixRecipients(
+  admin: ServiceClient,
+  authUsers?: AuthUser[],
+): Promise<{
+  pending: ReplyFixRecipient[];
+  alreadySent: number;
+}> {
+  authUsers ??= await listAllAuthUsers(admin);
 
   const eligible = authUsers.filter((u) => {
     const meta = u.app_metadata ?? {};

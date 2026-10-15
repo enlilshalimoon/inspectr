@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendSystemEmail, welcomeEmail, passwordResetEmail } from "@/lib/email/send";
@@ -59,12 +60,17 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
 
   const supabase = await createClient();
   const origin = await originFromHeaders();
+  // First-touch ad/channel attribution stamped by the proxy (see lib/attribution.ts).
+  const signupSource = parseAttribution((await cookies()).get(ATTRIBUTION_COOKIE)?.value);
 
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      data: { full_name: parsed.data.fullName },
+      data: {
+        full_name: parsed.data.fullName,
+        ...(signupSource ? { signup_source: signupSource } : {}),
+      },
       emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
     },
   });
