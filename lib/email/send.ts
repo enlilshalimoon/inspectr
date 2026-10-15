@@ -9,6 +9,8 @@
 // Lazy-loads the Resend SDK so routes still build without the key set. All sends
 // are best-effort: callers should not fail their primary action if email fails.
 
+import type { NudgeStage } from "@/lib/email/nudges";
+
 const FROM_SYSTEM =
   process.env.RESEND_SYSTEM_FROM ?? "Lookover <noreply@uselookover.com>";
 
@@ -302,7 +304,6 @@ export function founderCheckinEmail(opts: {
 }) {
   const name = opts.firstName?.trim() ? opts.firstName.trim().split(" ")[0] : "there";
   const company = opts.companyName?.trim() || null;
-  const p = "margin:0 0 14px";
 
   let subject: string;
   let paragraphs: string[];
@@ -332,6 +333,13 @@ export function founderCheckinEmail(opts: {
     ];
   }
 
+  return { subject, ...renderFounderNote(paragraphs) };
+}
+
+// Plain founder-voice note: paragraphs hold RAW text, escaped here for HTML and used
+// as-is for text/plain (same reasoning as founderCheckinEmail above).
+function renderFounderNote(paragraphs: string[]): { html: string; text: string } {
+  const p = "margin:0 0 14px";
   const sig = `<p style="margin:18px 0 0">— Enlil<br><span style="color:#64748b">Founder, Lookover · uselookover.com</span></p>`;
   const bodyHtml = paragraphs.map((t) => `<p style="${p}">${escapeHtml(t)}</p>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -340,10 +348,64 @@ export function founderCheckinEmail(opts: {
   ${bodyHtml}
   ${sig}
 </div></body></html>`;
-
   const text = `${paragraphs.join("\n\n")}\n\n— Enlil\nFounder, Lookover · uselookover.com`;
+  return { html, text };
+}
 
-  return { subject, html, text };
+// ---------------------------------------------------------------------------
+// Stage nudges — sent by the daily cron when an inspector has been stuck at one
+// step for 24h (see lib/email/nudges.ts for when). Each one names the exact button
+// to press next. Plain founder voice, offers a reply or a 15-min call.
+// ---------------------------------------------------------------------------
+export function founderNudgeEmail(opts: {
+  stage: NudgeStage;
+  firstName?: string | null;
+  propertyAddress?: string | null;
+}) {
+  const name = opts.firstName?.trim() ? opts.firstName.trim().split(" ")[0] : "there";
+  const addr = opts.propertyAddress?.trim() || null;
+  const at = addr ? ` at ${addr}` : "";
+  let subject: string;
+  let paragraphs: string[];
+  switch (opts.stage) {
+    case "no_inspection":
+      subject = "ready for your first inspection?";
+      paragraphs = [
+        `Hey ${name},`,
+        `Enlil here, I built Lookover. You're all set up, so the next step is your first inspection: tap New inspection, enter the address, and go.`,
+        `On site you just take photos and talk through what you see, and the findings get drafted for you to review.`,
+        `If anything's in the way, hit reply and tell me, or we can do a quick 15-min call and I'll walk you through it.`,
+      ];
+      break;
+    case "no_photos":
+      subject = addr ? `your inspection at ${addr}` : "your first inspection";
+      paragraphs = [
+        `Hey ${name},`,
+        `Enlil here, I built Lookover. I saw you started an inspection${at} but no photos are in yet.`,
+        `On the Capture tab, tap Take photo (or Choose existing photos if you already shot it) and talk through what you see. That's all it needs to draft the findings.`,
+        `If something isn't working, just reply and tell me, or I'm happy to hop on a 15-min call.`,
+      ];
+      break;
+    case "no_approvals":
+      subject = "your findings are ready to review";
+      paragraphs = [
+        `Hey ${name},`,
+        `Enlil here, I built Lookover. Your findings${addr ? ` for ${addr}` : ""} are drafted and waiting on you.`,
+        `Open the Review tab, check each finding, edit anything that's off, and hit Approve. Nothing goes in the report until you approve it.`,
+        `If the drafts read wrong, reply and tell me (I really want to know), or we can do a quick 15-min call.`,
+      ];
+      break;
+    case "not_delivered":
+      subject = addr ? `${addr} is almost done` : "your report is almost done";
+      paragraphs = [
+        `Hey ${name},`,
+        `Enlil here, I built Lookover. You've approved findings${addr ? ` on ${addr}` : ""}, so you're one step from a finished report.`,
+        `Open the Finalize tab, hit Finalize and generate PDF, then Send to client.`,
+        `If anything's stopping you, just reply, or grab 15 minutes with me and we'll sort it out together.`,
+      ];
+      break;
+  }
+  return { subject, ...renderFounderNote(paragraphs) };
 }
 
 // ---------------------------------------------------------------------------

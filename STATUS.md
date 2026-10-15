@@ -12,9 +12,12 @@ Last updated: 2026-10-15.
 - **Email replies:** founder + system email reply-to is hardcoded to enlilshalimoon@gmail.com (`lib/email/send.ts`). enlil@uselookover.com doesn't exist; hello@ delivers somewhere unread. The `FOUNDER_REPLY_TO` / `RESEND_SYSTEM_REPLY_TO` Vercel vars are no longer read.
 - **Founder follow-up email:** /admin → "Founder follow-up" → Send. Finalized-a-report users get comped for life + feedback ask; everyone else gets "what did you think?". Deduped via `app_metadata.followup_sent_at`.
 
+- **Automatic signup nudges (branch `signup-nudges`, PR open, not merged):** the daily cron (`/api/cron/founder-checkin`, 16:00 UTC) now emails inspectors who stall 24h at a step: onboarded/no inspection → no photos → nothing approved → not delivered. Each stage once per user (`app_metadata.nudges_sent`), max one founder email per 48h (counts the check-in, /admin follow-up, and first-report feedback email), signups from the last 14 days only, internal accounts skipped. The old 2-5 day check-in still runs for people with no inspection. Rules in `lib/email/nudges.ts` (`npm test`); copy in `founderNudgeEmail` (`lib/email/send.ts`). Dry run: `curl -H "Authorization: Bearer $CRON_SECRET" "https://uselookover.com/api/cron/founder-checkin?dry=1"` lists who would get what without sending.
+
 ## Open — needs the founder
 
 1. Press Send on the founder follow-up at /admin (if not done).
+1a. Review the nudge copy in the `signup-nudges` PR and merge it (merging = approving the copy; it starts sending on the next 16:00 UTC run).
 2. Connect enlilshalimoon@gmail.com as the Gmail connector (claude.ai/customize/connectors) so Claude can watch replies. The connected Gmail today is enlil@getgorgie.com (different business).
 3. Test "Choose existing photos" on a real iPhone (HEIC path untested).
 4. Add UTM URL parameters to every live Meta ad (see `marketing/ads/round-2.md`).
