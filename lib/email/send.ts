@@ -18,11 +18,13 @@ const FROM_SYSTEM =
 // mailbox that actually accepts mail. It used to default to enlil@uselookover.com,
 // which was never created in Workspace — verified by bounce test, "Address not
 // found" — so every reply to a founder email bounced back at the inspector and we
-// never saw it. hello@ is confirmed deliverable. If enlil@ is later created (an
-// alias of hello@ is enough), point FOUNDER_REPLY_TO at it via env; no deploy needed.
+// never saw it. hello@ then accepted mail but delivered somewhere nobody reads (a
+// test sent there Aug 18 never surfaced), so replies now go to the founder's
+// personal Gmail, which is guaranteed to be read. Override via env, no deploy needed.
 const FROM_FOUNDER =
   process.env.RESEND_FOUNDER_FROM ?? "Enlil at Lookover <enlil@uselookover.com>";
-const FOUNDER_REPLY_TO = process.env.FOUNDER_REPLY_TO ?? "hello@uselookover.com";
+export const FOUNDER_REPLY_TO =
+  process.env.FOUNDER_REPLY_TO ?? "enlilshalimoon@gmail.com";
 
 const BRAND = {
   navy: "#0f172a",
@@ -56,12 +58,12 @@ export async function sendSystemEmail(args: SendArgs): Promise<{ ok: boolean; er
       subject: args.subject,
       html: args.html,
       text: args.text,
-      // Reply-to must be a deliverable inbox. uselookover.com receiving is set up
-      // separately (Workspace/forwarding); until then point at a working inbox via env.
+      // Reply-to must be an inbox someone reads. The welcome email says "reply here,
+      // it comes straight to me", so default to the same inbox as founder emails.
       replyTo:
         args.replyTo ??
         process.env.RESEND_SYSTEM_REPLY_TO ??
-        "hello@uselookover.com",
+        FOUNDER_REPLY_TO,
     });
     if (res.error) {
       console.error("[email] resend error:", res.error);
