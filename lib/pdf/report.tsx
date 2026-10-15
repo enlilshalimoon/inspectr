@@ -457,7 +457,8 @@ function PageFooter({ inspector }: { inspector: ReportData["inspector"] }) {
   return (
     <View style={styles.pageFooter} fixed>
       <Text>
-        {inspector.full_name} · {inspector.company_name}
+        {inspector.full_name}
+        {inspector.company_name ? ` · ${inspector.company_name}` : ""}
         {inspector.license_number ? ` · License ${inspector.license_number}` : ""}
       </Text>
       <Text

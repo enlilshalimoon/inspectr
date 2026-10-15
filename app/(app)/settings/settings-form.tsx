@@ -108,7 +108,6 @@ export function SettingsForm({ userId, defaults }: { userId: string; defaults: D
               name="company_name"
               autoComplete="organization"
               defaultValue={defaults.company_name}
-              required
             />
           </Field>
           <div>

@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 
 const schema = z.object({
   full_name: z.string().min(1, "Your name is required.").max(120),
-  company_name: z.string().min(1, "Company name is required.").max(160),
+  // Optional, matching onboarding: reports simply omit it when blank.
+  company_name: z.string().max(160),
   license_number: z.string().max(60).optional().nullable(),
   license_state: z.string().max(2).optional().nullable(),
   phone: z.string().max(40).optional().nullable(),
@@ -29,7 +30,7 @@ export async function updateSettings(
 
   const patch = {
     full_name: parsed.data.full_name,
-    company_name: parsed.data.company_name,
+    company_name: parsed.data.company_name.trim() || null,
     license_number: parsed.data.license_number ?? null,
     license_state: parsed.data.license_state ? parsed.data.license_state.toUpperCase() : null,
     phone: parsed.data.phone ?? null,

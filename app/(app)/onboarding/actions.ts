@@ -6,13 +6,24 @@ import { createClient } from "@/lib/supabase/server";
 
 export type OnboardingState = { error?: string } | null;
 
+// Only the name is required. Everything else is report branding a new
+// inspector can fill in later from Settings. Requiring a license number and
+// phone before they'd seen a single drafted finding was a wall: trainees and
+// people just trying it out don't have (or won't hand over) a license number.
+const optionalText = (max: number, message?: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, message)
+    .transform((v) => (v === "" ? null : v));
+
 const schema = z.object({
-  fullName: z.string().min(1, "Your name is required.").max(120),
-  companyName: z.string().min(1, "Company name is required.").max(160),
-  licenseNumber: z.string().min(1, "License number is required.").max(60),
-  licenseState: z.string().min(2, "State is required.").max(2),
-  phone: z.string().min(7, "Phone is required.").max(30),
-  defaultDisclaimer: z.string().min(1, "Disclaimer is required."),
+  fullName: z.string().trim().min(1, "Your name is required.").max(120),
+  companyName: optionalText(160),
+  licenseNumber: optionalText(60),
+  licenseState: optionalText(2, "Use the 2-letter state code, e.g. TX."),
+  phone: optionalText(30),
+  defaultDisclaimer: optionalText(8000),
 });
 
 export async function completeOnboarding(
@@ -20,12 +31,12 @@ export async function completeOnboarding(
   formData: FormData,
 ): Promise<OnboardingState> {
   const parsed = schema.safeParse({
-    fullName: formData.get("fullName"),
-    companyName: formData.get("companyName"),
-    licenseNumber: formData.get("licenseNumber"),
-    licenseState: (formData.get("licenseState") as string | null)?.toUpperCase(),
-    phone: formData.get("phone"),
-    defaultDisclaimer: formData.get("defaultDisclaimer"),
+    fullName: formData.get("fullName") ?? "",
+    companyName: formData.get("companyName") ?? "",
+    licenseNumber: formData.get("licenseNumber") ?? "",
+    licenseState: ((formData.get("licenseState") as string | null) ?? "").toUpperCase(),
+    phone: formData.get("phone") ?? "",
+    defaultDisclaimer: formData.get("defaultDisclaimer") ?? "",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the fields." };
@@ -51,5 +62,7 @@ export async function completeOnboarding(
     .eq("id", user.id);
 
   if (error) return { error: error.message };
-  redirect("/inspections");
+  // Straight into the first inspection. The empty inspections list was one
+  // more screen between signup and the first photo.
+  redirect("/inspections/new");
 }

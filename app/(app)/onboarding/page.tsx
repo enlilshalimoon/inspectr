@@ -23,7 +23,8 @@ export default async function OnboardingPage() {
       <div className="space-y-2 mb-8">
         <h1 className="text-2xl font-semibold text-slate-900">Set up your profile</h1>
         <p className="text-sm text-slate-500">
-          This info goes on every report. You can change it later in Settings.
+          This goes on your reports. Only your name is needed now. Fill in the
+          rest whenever you like in Settings.
         </p>
       </div>
       <OnboardingForm
