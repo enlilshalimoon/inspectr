@@ -13,6 +13,8 @@ Quick gotchas confirmed for this project:
 - **`revalidateTag(tag, profile)`** — second arg required. Use `updateTag(tag)` in actions for read-your-writes.
 - **Parallel routes** need `default.tsx` in every slot.
 
+**Read `STATUS.md` next** — current state, open items, and handoff notes; update it before ending a session.
+
 See `DECISIONS.md` for stack rationale and `db/migrations/` for the canonical schema.
 <!-- END:nextjs-agent-rules -->
 
