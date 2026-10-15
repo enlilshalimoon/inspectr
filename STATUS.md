@@ -23,7 +23,7 @@ Last updated: 2026-10-15.
 
 ## In progress (branches, not merged)
 
-- `activation-fixes` — audit + low-risk fixes for signup → first drafted finding.
+- `activation-fixes` — audit + low-risk fixes for signup → first drafted finding. Pushed, not merged, untested on a real device. Onboarding now needs only a name and lands on /inspections/new; the new-inspection form shows one field; capture has a "Review drafts" banner, empty-state guidance, same-file upload retry, an `<img>` decode fallback in prepareImage, and voice/mic error messages; review has an empty state; the welcome email is sent via `after()`. Before merging: on an iPhone, do signup → onboarding → new inspection → Choose existing photos (include a HEIC) → draft → voice note (allow and deny mic).
 - `ads-round-2` — next ad concepts, UTM setup, kill/scale rules.
 
 ## Working rules
