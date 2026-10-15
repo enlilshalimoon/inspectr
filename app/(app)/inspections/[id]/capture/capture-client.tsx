@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import Link from "next/link";
 import {
   Camera,
   Image as ImageIcon,
@@ -37,9 +38,12 @@ export type CapturePhoto = {
     storage_path?: string;
     voice_note_id?: string;
     duration_seconds?: number;
+    error?: string;
   };
   // For optimistic display
   localUrl?: string;
+  // Kept so "Retry" can re-send the same photo instead of forcing a re-shoot.
+  rawFile?: File;
   errorMessage?: string;
   aiErrorMessage?: string;
 };
@@ -84,10 +88,19 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ photo_id: photoId, regenerate }),
       });
-      const json = await res.json();
+      // A platform timeout or crash returns an HTML error page, not JSON.
+      // Without the catch, the inspector saw a raw "Unexpected token '<'".
+      const json = await res.json().catch(() => ({}));
       // The route sends `message` written for the inspector; `error` is the
       // internal label. Prefer the former so failures are actionable.
-      if (!res.ok) throw new Error(json.message ?? json.error ?? "AI failed");
+      if (!res.ok) {
+        throw new Error(
+          json.message ??
+            (res.status >= 500
+              ? "Drafting took too long or the server hiccuped. Tap Try again."
+              : (json.error ?? "AI failed")),
+        );
+      }
       patchPhoto(photoId, {
         ai_status: "drafted",
         finding: json.finding ?? null,
@@ -128,6 +141,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         storage_path: "",
         url: null,
         localUrl,
+        rawFile,
         status: "uploading",
         ai_status: "idle",
         voice: { state: "idle" },
@@ -180,6 +194,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
                 storage_path: storagePath,
                 url: signed?.signedUrl ?? null,
                 status: "uploaded",
+                rawFile: undefined,
               }
             : p,
         ),
@@ -215,6 +230,13 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
 
   async function retryUpload(photo: CapturePhoto) {
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    // Re-send the same photo. Used to reopen the camera, which forced a
+    // re-shoot after a signal drop and was a dead end for library photos.
+    if (photo.rawFile) {
+      if (photo.localUrl) URL.revokeObjectURL(photo.localUrl);
+      await uploadOne(photo.rawFile, photo.section_id ?? "");
+      return;
+    }
     fileInputRef.current?.click();
   }
 
@@ -222,8 +244,27 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
   async function startRecording(photo: CapturePhoto) {
     if (photo.voice?.state === "recording") return;
     try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        patchPhoto(photo.id, {
+          voice: {
+            state: "failed",
+            error: "Voice notes aren't supported in this browser. Try Safari or Chrome.",
+          },
+        });
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: pickAudioMime() });
+      // Only pass a mimeType the browser says it supports. Forcing an
+      // unsupported one throws on older iOS Safari; letting the browser pick
+      // its default (audio/mp4 on iPhone) works and Whisper accepts it.
+      const mimeType = pickAudioMime();
+      let recorder: MediaRecorder;
+      try {
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      } catch (err) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw err;
+      }
       const chunks: BlobPart[] = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size) chunks.push(e.data);
@@ -240,7 +281,17 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       patchPhoto(photo.id, { voice: { state: "recording" } });
     } catch (err) {
       console.error("mic permission failed:", err);
-      patchPhoto(photo.id, { voice: { state: "failed" } });
+      const denied =
+        err instanceof DOMException &&
+        (err.name === "NotAllowedError" || err.name === "SecurityError");
+      patchPhoto(photo.id, {
+        voice: {
+          state: "failed",
+          error: denied
+            ? "Microphone access is blocked for this site. Allow it in the browser's website settings (Safari: the page menu next to the address → Website Settings → Microphone), then try again."
+            : "Couldn't start recording. Try again.",
+        },
+      });
     }
   }
 
@@ -293,7 +344,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ voice_note_id: vn.id }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? "transcribe failed");
 
       patchPhoto(photo.id, {
@@ -310,7 +361,12 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       void processPhotoAI(photo.id, true);
     } catch (err) {
       console.error("voice upload failed:", err);
-      patchPhoto(photo.id, { voice: { state: "failed" } });
+      patchPhoto(photo.id, {
+        voice: {
+          state: "failed",
+          error: "Voice note didn't go through. Tap Voice note to record it again.",
+        },
+      });
     }
   }
 
@@ -318,17 +374,51 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
 
   const currentSection = sections.find((s) => s.id === currentSectionId);
   const countsBySection = countByKey(photos, (p) => p.section_id ?? "_unassigned");
+  const draftedCount = photos.filter((p) => p.finding).length;
+  const processingCount = photos.filter(
+    (p) => p.status === "uploading" || p.ai_status === "processing",
+  ).length;
 
   return (
     <div className="space-y-4">
+      {/* What to do next. Drafts appeared on the cards with no hint that the
+          Review tab is where they get edited, approved and turned into a
+          report. */}
+      {draftedCount > 0 && (
+        <Card className="border-emerald-200 bg-emerald-50">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-emerald-900">
+              <span className="font-medium">
+                {draftedCount} finding{draftedCount === 1 ? "" : "s"} drafted.
+              </span>{" "}
+              {processingCount > 0
+                ? `${processingCount} more on the way. Keep shooting, or review what's ready.`
+                : "Review, edit and approve them, then finalize the report."}
+            </div>
+            <Link
+              href={`/inspections/${inspectionId}/review`}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
+            >
+              Review drafts →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="p-4 flex items-center justify-between gap-3">
           <div className="space-y-1 min-w-0">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Current section</div>
+            <label
+              htmlFor="capture-section"
+              className="block text-xs uppercase tracking-wide text-slate-500"
+            >
+              Current section · tap to change
+            </label>
             <select
+              id="capture-section"
               value={currentSectionId}
               onChange={(e) => setCurrentSectionId(e.target.value)}
-              className="text-base font-medium text-slate-900 bg-transparent border-0 -ml-1 px-1 py-0 focus:outline-none focus:ring-2 focus:ring-slate-200 rounded"
+              className="max-w-full text-base font-medium text-slate-900 bg-white border border-slate-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-slate-200 rounded-md"
             >
               {sections.map((s) => {
                 const n = countsBySection.get(s.id) ?? 0;
@@ -389,8 +479,16 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
 
       {photos.length === 0 ? (
         <Card>
-          <CardContent className="p-10 text-center text-sm text-slate-500">
-            No photos yet. Tap the button above to take your first.
+          <CardContent className="p-6 sm:p-10 text-center space-y-2">
+            <p className="text-sm font-medium text-slate-900">No photos yet</p>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              On site, tap <span className="font-medium text-slate-700">Take photo</span>.
+              Not on a job right now? Tap{" "}
+              <span className="font-medium text-slate-700">Choose existing photos</span>{" "}
+              and pick a few defect photos from your camera roll. Each one gets a
+              drafted finding in under a minute. Add a voice note to any photo to
+              steer the draft.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -450,7 +548,7 @@ function PhotoCard({
           )}
           {photo.status === "failed" && (
             <Overlay tone="error">
-              Upload failed
+              Upload failed. Check your signal.
               <button
                 type="button"
                 onClick={onRetry}
@@ -511,6 +609,9 @@ function PhotoCard({
         )}
         {photo.voice?.state === "uploading" && (
           <p className="text-xs text-slate-400 italic">Uploading voice note…</p>
+        )}
+        {photo.voice?.state === "failed" && photo.voice.error && (
+          <p className="text-xs text-red-700">{photo.voice.error}</p>
         )}
 
         {/* AI finding preview */}
@@ -632,33 +733,28 @@ const JPEG_QUALITY = 0.85;
 async function prepareImage(file: File): Promise<File> {
   const needsTranscode = !CLAUDE_READABLE.has(file.type.toLowerCase());
 
-  let bitmap: ImageBitmap;
-  try {
-    // imageOrientation matters: without it, EXIF-rotated phone photos upload
-    // sideways and the vision model analyzes them sideways.
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    return file;
-  }
+  const decoded = await decodeImage(file);
+  if (!decoded) return file;
+  const { source, width: srcW, height: srcH, release } = decoded;
 
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, MAX_EDGE / Math.max(srcW, srcH));
   if (!needsTranscode && scale === 1) {
-    bitmap.close?.();
+    release();
     return file;
   }
 
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const width = Math.max(1, Math.round(srcW * scale));
+  const height = Math.max(1, Math.round(srcH * scale));
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    bitmap.close?.();
+    release();
     return file;
   }
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close?.();
+  ctx.drawImage(source, 0, 0, width, height);
+  release();
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
@@ -672,6 +768,60 @@ async function prepareImage(file: File): Promise<File> {
   });
 }
 
+type DecodedImage = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  release: () => void;
+};
+
+// Decode a photo for canvas re-encoding. createImageBitmap with
+// imageOrientation "from-image" is the preferred path, but older Safari
+// versions reject that option value (or lack createImageBitmap for some
+// files) and throw. Before, any throw meant the photo went up un-resized and,
+// if it was HEIC, un-converted. An <img> element is the most widely supported
+// decoder (Safari decodes HEIC with it, and applies EXIF orientation when
+// drawing), so fall back to that before giving up.
+async function decodeImage(file: File): Promise<DecodedImage | null> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close?.(),
+      };
+    } catch {
+      // fall through to <img>
+    }
+  }
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("image decode failed"));
+      img.src = url;
+    });
+    if (!img.naturalWidth || !img.naturalHeight) {
+      URL.revokeObjectURL(url);
+      return null;
+    }
+    return {
+      source: img,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      release: () => URL.revokeObjectURL(url),
+    };
+  } catch {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+}
+
 function guessExtension(file: File): string {
   if (file.type.includes("png")) return "png";
   if (file.type.includes("webp")) return "webp";
@@ -679,18 +829,22 @@ function guessExtension(file: File): string {
   return "jpg";
 }
 
-function pickAudioMime(): string {
+function pickAudioMime(): string | undefined {
   // Prefer formats Whisper understands well + browser supports widely.
+  // Returns undefined when none is confirmed, so the browser uses its default.
   const candidates = [
     "audio/webm;codecs=opus",
     "audio/webm",
     "audio/ogg;codecs=opus",
     "audio/mp4",
   ];
-  for (const c of candidates) {
-    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(c)) return c;
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
+    return undefined;
   }
-  return "audio/webm";
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported(c)) return c;
+  }
+  return undefined;
 }
 
 function mimeToExt(m: string): string {
