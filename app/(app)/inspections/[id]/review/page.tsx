@@ -153,8 +153,23 @@ export default async function ReviewPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {!sections?.length ? (
-        <EmptyState message="No sections yet. Capture photos from a phone to start." />
+      {!sections?.length || ((photoRows?.length ?? 0) === 0 && totalCount === 0) ? (
+        // With sections but no photos, every section below renders null and
+        // the page was blank under the stats card, with no way forward.
+        <Card>
+          <CardContent className="p-10 text-center space-y-3">
+            <p className="text-sm text-slate-500">
+              Nothing to review yet. Add photos on the Capture tab and drafted
+              findings will show up here.
+            </p>
+            <Link
+              href={`/inspections/${id}/capture`}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-slate-900 text-white hover:bg-slate-800"
+            >
+              Go to Capture →
+            </Link>
+          </CardContent>
+        </Card>
       ) : (
         sections.map((s) => {
           const sectionFindings = sortBySeverity(findingsBySection.get(s.id) ?? []);
@@ -247,13 +262,5 @@ function SeverityLegend({ findings }: { findings: Finding[] }) {
         );
       })}
     </div>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <Card>
-      <CardContent className="p-10 text-center text-sm text-slate-500">{message}</CardContent>
-    </Card>
   );
 }
