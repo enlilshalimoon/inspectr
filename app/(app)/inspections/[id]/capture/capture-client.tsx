@@ -131,12 +131,12 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
   );
 
   async function uploadOne(rawFile: File, sectionId: string) {
-    const tempId = crypto.randomUUID();
+    const photoId = crypto.randomUUID();
     const localUrl = URL.createObjectURL(rawFile);
 
     setPhotos((prev) => [
       {
-        id: tempId,
+        id: photoId,
         section_id: sectionId || null,
         storage_path: "",
         url: null,
@@ -148,28 +148,36 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       },
       ...prev,
     ]);
+    await sendPhoto(photoId, rawFile, sectionId);
+  }
 
+  // The card id doubles as the photos row id, and the storage path is pinned on
+  // the card once chosen, so a retry overwrites the same object and row instead
+  // of orphaning a storage object or creating a duplicate photo and AI draft.
+  async function sendPhoto(photoId: string, rawFile: File, sectionId: string, pinnedPath?: string) {
     try {
       // Normalize before upload: fixes iPhone HEIC (Safari can decode it even
       // though Claude can't read it), corrects EXIF rotation, and shrinks a
       // 4 MB camera original to a few hundred KB — which is most of the wait
       // on both the upload and the vision call.
       const file = await prepareImage(rawFile);
-      const extension = guessExtension(file);
-      const storagePath = `${userId}/${inspectionId}/${tempId}.${extension}`;
+      const storagePath =
+        pinnedPath || `${userId}/${inspectionId}/${photoId}.${guessExtension(file)}`;
+      patchPhoto(photoId, { storage_path: storagePath });
 
       const { error: uploadErr } = await supabase.storage
         .from("inspection-media")
         .upload(storagePath, file, {
           cacheControl: "3600",
           contentType: file.type || "image/jpeg",
-          upsert: false,
+          upsert: true,
         });
       if (uploadErr) throw uploadErr;
 
       const { data: row, error: insErr } = await supabase
         .from("photos")
-        .insert({
+        .upsert({
+          id: photoId,
           inspection_id: inspectionId,
           section_id: sectionId || null,
           storage_path: storagePath,
@@ -184,13 +192,11 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
         .from("inspection-media")
         .createSignedUrl(storagePath, 60 * 60);
 
-      const realId = row.id as string;
       setPhotos((prev) =>
         prev.map((p) =>
-          p.id === tempId
+          p.id === photoId
             ? {
                 ...p,
-                id: realId,
                 storage_path: storagePath,
                 url: signed?.signedUrl ?? null,
                 status: "uploaded",
@@ -201,12 +207,12 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       );
 
       // Fire AI processing in the background.
-      void processPhotoAI(realId);
+      void processPhotoAI(photoId);
     } catch (err) {
       console.error("upload failed:", err);
       setPhotos((prev) =>
         prev.map((p) =>
-          p.id === tempId
+          p.id === photoId
             ? {
                 ...p,
                 status: "failed",
@@ -223,20 +229,20 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
     if (photo.storage_path) {
       await supabase.storage.from("inspection-media").remove([photo.storage_path]);
     }
-    if (photo.status === "uploaded") {
-      await supabase.from("photos").delete().eq("id", photo.id);
-    }
+    // A failed card may still have a row from a partial upload; the id is the
+    // row id either way, so a no-op delete is harmless.
+    await supabase.from("photos").delete().eq("id", photo.id);
   }
 
   async function retryUpload(photo: CapturePhoto) {
-    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
     // Re-send the same photo. Used to reopen the camera, which forced a
     // re-shoot after a signal drop and was a dead end for library photos.
     if (photo.rawFile) {
-      if (photo.localUrl) URL.revokeObjectURL(photo.localUrl);
-      await uploadOne(photo.rawFile, photo.section_id ?? "");
+      patchPhoto(photo.id, { status: "uploading", errorMessage: undefined });
+      await sendPhoto(photo.id, photo.rawFile, photo.section_id ?? "", photo.storage_path);
       return;
     }
+    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
     fileInputRef.current?.click();
   }
 
