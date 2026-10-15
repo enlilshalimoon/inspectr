@@ -14,7 +14,7 @@ dotenvConfig({ path: ".env.local" });
 dotenvConfig();
 
 const SEND = process.argv.includes("--send");
-const REPLY_TO = process.env.FOUNDER_REPLY_TO ?? "enlilshalimoon@gmail.com";
+const REPLY_TO = "enlilshalimoon@gmail.com";
 const FROM = "Enlil at Lookover <enlil@uselookover.com>";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -8,6 +8,9 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/is-admin";
+import { getReplyFixRecipients } from "@/lib/admin/reply-fix";
+import { FOUNDER_REPLY_TO } from "@/lib/email/send";
+import { ReplyFixButton } from "./reply-fix-button";
 
 export const metadata = {
   title: "Admin",
@@ -84,6 +87,7 @@ export default async function AdminPage() {
   ]);
 
   const signups: Signup[] = (recentSignupsRaw.data ?? []) as Signup[];
+  const replyFix = await getReplyFixRecipients(admin);
 
   // One round-trip for per-user inspection counts (so the table shows engagement)
   const userIds = signups.map((s) => s.id);
@@ -229,6 +233,30 @@ export default async function AdminPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Reply-fix follow-up — one-off apology for the bounced reply-to */}
+      <section className="space-y-3">
+        <h2 className="text-sm uppercase tracking-wide text-slate-500 font-medium">
+          Reply-fix follow-up
+        </h2>
+        <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 text-sm">
+          <p className="text-slate-600">
+            &ldquo;My reply address was broken&rdquo; email, from enlil@, replies to{" "}
+            {FOUNDER_REPLY_TO}. {replyFix.alreadySent} already sent.
+          </p>
+          {replyFix.pending.length > 0 && (
+            <ul className="font-mono text-xs text-slate-700 space-y-0.5">
+              {replyFix.pending.map((r) => (
+                <li key={r.id}>
+                  {r.email}
+                  {r.fullName ? ` (${r.fullName})` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+          <ReplyFixButton count={replyFix.pending.length} />
         </div>
       </section>
 

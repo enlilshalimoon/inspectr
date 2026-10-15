@@ -20,11 +20,12 @@ const FROM_SYSTEM =
 // found" — so every reply to a founder email bounced back at the inspector and we
 // never saw it. hello@ then accepted mail but delivered somewhere nobody reads (a
 // test sent there Aug 18 never surfaced), so replies now go to the founder's
-// personal Gmail, which is guaranteed to be read. Override via env, no deploy needed.
+// personal Gmail, which is guaranteed to be read. Deliberately hardcoded: the old
+// FOUNDER_REPLY_TO / RESEND_SYSTEM_REPLY_TO Vercel vars still point at the dead
+// inbox and are no longer read.
 const FROM_FOUNDER =
   process.env.RESEND_FOUNDER_FROM ?? "Enlil at Lookover <enlil@uselookover.com>";
-export const FOUNDER_REPLY_TO =
-  process.env.FOUNDER_REPLY_TO ?? "enlilshalimoon@gmail.com";
+export const FOUNDER_REPLY_TO = "enlilshalimoon@gmail.com";
 
 const BRAND = {
   navy: "#0f172a",
@@ -60,10 +61,7 @@ export async function sendSystemEmail(args: SendArgs): Promise<{ ok: boolean; er
       text: args.text,
       // Reply-to must be an inbox someone reads. The welcome email says "reply here,
       // it comes straight to me", so default to the same inbox as founder emails.
-      replyTo:
-        args.replyTo ??
-        process.env.RESEND_SYSTEM_REPLY_TO ??
-        FOUNDER_REPLY_TO,
+      replyTo: args.replyTo ?? FOUNDER_REPLY_TO,
     });
     if (res.error) {
       console.error("[email] resend error:", res.error);
@@ -346,6 +344,29 @@ export function founderCheckinEmail(opts: {
   const text = `${paragraphs.join("\n\n")}\n\n— Enlil\nFounder, Lookover · uselookover.com`;
 
   return { subject, html, text };
+}
+
+// ---------------------------------------------------------------------------
+// Reply-fix follow-up — one-off apology to everyone who got a founder email while
+// its reply-to was broken. Sent from the /admin button (see lib/admin/reply-fix.ts).
+// ---------------------------------------------------------------------------
+export function replyFixFollowupEmail(opts: { firstName?: string | null }) {
+  const name = opts.firstName?.trim() ? opts.firstName.trim().split(" ")[0] : "there";
+  const paragraphs = [
+    `Hey ${name},`,
+    `Enlil again, from Lookover. Quick and slightly embarrassing one: the email I sent you after you signed up had a broken reply address. If you hit reply, it bounced, and I never saw it.`,
+    `If you did write back, I'm sorry. I'd still really like to hear it. Replying to this one comes straight to my personal inbox, and I read every one.`,
+    `And if you never got around to trying it, no hard feelings. One honest line on why would help me a lot: bad timing, not a fit for how you work, or something didn't work.`,
+  ];
+  const p = "margin:0 0 14px";
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#ffffff">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1e293b;max-width:540px;margin:0 auto;padding:28px 24px">
+  ${paragraphs.map((t) => `<p style="${p}">${escapeHtml(t)}</p>`).join("")}
+  <p style="margin:18px 0 0">— Enlil<br><span style="color:#64748b">Founder, Lookover · uselookover.com</span></p>
+</div></body></html>`;
+  const text = `${paragraphs.join("\n\n")}\n\n— Enlil\nFounder, Lookover · uselookover.com`;
+  return { subject: "my reply address was broken", html, text };
 }
 
 function escapeHtml(s: string): string {

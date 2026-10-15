@@ -20,23 +20,11 @@ import {
   sendFounderEmail,
   type CheckinVariant,
 } from "@/lib/email/send";
+import { isInternalEmail } from "@/lib/email/internal";
 
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Don't email our own test/internal accounts if one ever slips past the backfill.
-function isInternalEmail(email: string): boolean {
-  const e = email.toLowerCase();
-  return (
-    e.endsWith("@enlil.studio") ||
-    e.endsWith("@spyre.studio") ||
-    e.includes("+lk@") ||
-    e.includes("+test@") ||
-    e.endsWith("@example.com") ||
-    e === "enlilshalimoon@gmail.com"
-  );
-}
 
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
