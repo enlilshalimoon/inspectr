@@ -11,6 +11,7 @@ marketing/
 ├── landing-page.md            ← landing-page spec / source of truth
 │
 ├── ads/                       ← Meta ads program
+│   ├── round-2.md                 ← CURRENT: tracked test vs. the iPhone ad, URL params, kill/scale rules
 │   └── campaign-agent-prompt.md   ← self-contained playbook for the autonomous campaign-running agent
 │
 ├── outreach/                  ← inspector outreach templates + send log
