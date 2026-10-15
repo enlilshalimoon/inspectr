@@ -21,7 +21,10 @@ const schema = z.object({
   fullName: z.string().trim().min(1, "Your name is required.").max(120),
   companyName: optionalText(160),
   licenseNumber: optionalText(60),
-  licenseState: optionalText(2, "Use the 2-letter state code, e.g. TX."),
+  licenseState: optionalText(2, "Use the 2-letter state code, e.g. TX.").refine(
+    (v) => v === null || /^[A-Z]{2}$/.test(v),
+    "Use the 2-letter state code, e.g. TX.",
+  ),
   phone: optionalText(30),
   defaultDisclaimer: optionalText(8000),
 });
