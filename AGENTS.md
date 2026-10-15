@@ -15,3 +15,12 @@ Quick gotchas confirmed for this project:
 
 See `DECISIONS.md` for stack rationale and `db/migrations/` for the canonical schema.
 <!-- END:nextjs-agent-rules -->
+
+## Secrets in cloud sessions
+
+`.env.local` is gitignored and never comes with a cloud session. Real values live in Vercel → Project → Settings → Environment Variables. For ops work (querying signups, sending founder email) the cloud environment's env vars must include:
+
+- `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — read users/inspections
+- `RESEND_API_KEY` — send email (send-only; can't read delivery status)
+
+If they're missing, ask the founder to add them in the environment settings (session title bar → environment → Edit). Never ask for keys in chat and never write values into the repo.
