@@ -7,6 +7,9 @@ import { labelForSection } from "@/lib/supabase/sections";
 import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types";
 import { EditableFindingCard } from "./finding-card";
 import { BulkApproveButton } from "./bulk-approve-button";
+import { TrecPanel } from "./trec-panel";
+import { isTexasLicense, itemsMissingStatus, resolveItems, usesTrecForm } from "@/lib/trec/form";
+import { loadFindingsForForm, loadReportForm } from "@/lib/trec/load";
 import { SectionStatusControl } from "./section-status";
 import { readSectionStatus, sectionsNeedingStatus } from "@/lib/inspection/system-status";
 import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
@@ -50,6 +53,19 @@ export default async function ReviewPage({ params }: Props) {
         .order("created_at", { ascending: false }),
     ]);
   if (!inspection) notFound();
+
+  // Texas: the deliverable is TREC form REI 7-6, set up in a panel here.
+  const { data: inspector } = await supabase
+    .from("users")
+    .select("license_state")
+    .eq("id", user.id)
+    .maybeSingle();
+  const trecForm = isTexasLicense(inspector?.license_state) ? await loadReportForm(supabase, id) : null;
+  const trecFindings = trecForm ? await loadFindingsForForm(supabase, id) : [];
+  const trecMissing =
+    trecForm && usesTrecForm(inspector?.license_state, trecForm)
+      ? itemsMissingStatus(resolveItems(trecForm, trecFindings)).length
+      : 0;
 
   // Sign URLs for photos (private bucket)
   const paths = (photoRows ?? []).map((p) => p.storage_path as string);
@@ -132,7 +148,8 @@ export default async function ReviewPage({ params }: Props) {
                 <div className="flex items-center gap-2 min-w-0">
                   {allApproved ? (
                     <span className="text-sm font-medium text-emerald-900">
-                      All {totalCount} findings approved — ready to finalize
+                      All {totalCount} findings approved
+                      {trecMissing ? "" : " — ready to finalize"}
                     </span>
                   ) : (
                     <span className="text-sm font-medium text-amber-900">
@@ -143,7 +160,14 @@ export default async function ReviewPage({ params }: Props) {
                     ({approvedCount} / {totalCount})
                   </span>
                 </div>
-                {allApproved ? (
+                {allApproved && trecMissing > 0 ? (
+                  <a
+                    href="#trec-form"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700"
+                  >
+                    Set {trecMissing} TREC form item{trecMissing === 1 ? "" : "s"} ↓
+                  </a>
+                ) : allApproved ? (
                   <Link
                     href={`/inspections/${id}/finalize`}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-700 text-white hover:bg-emerald-800"
@@ -308,6 +332,21 @@ export default async function ReviewPage({ params }: Props) {
             </div>
           ))}
         </section>
+      )}
+
+      {trecForm && (
+        <TrecPanel
+          inspectionId={id}
+          initialForm={trecForm}
+          findings={trecFindings.map((f) => ({
+            id: f.id,
+            title: f.title,
+            description: f.description,
+            severity: f.severity,
+            is_approved: f.is_approved,
+            sectionType: f.sectionType,
+          }))}
+        />
       )}
     </div>
   );

@@ -23,6 +23,8 @@ type Props = {
   missingStatus: string[];
   defaultClientEmail: string | null;
   clientName: string | null;
+  // Texas: the report is TREC form REI 7-6; items still missing a checkbox.
+  trec: { applies: boolean; missing: string[] };
 };
 
 export function FinalizePanel({
@@ -37,9 +39,11 @@ export function FinalizePanel({
   missingStatus,
   defaultClientEmail,
   clientName,
+  trec,
 }: Props) {
   const isFinalized = status === "finalized" || status === "delivered";
   const allApproved = totalFindings > 0 && unapprovedCount === 0;
+  const trecReady = !trec.applies || trec.missing.length === 0;
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -234,18 +238,43 @@ export function FinalizePanel({
                 : `${unapprovedCount} still need approval`
             }
           />
-          <Row
-            ok={missingStatus.length === 0}
-            label="Every system has a status"
-            value={
-              missingStatus.length === 0
-                ? "All marked"
-                : `${missingStatus.length} not marked`
-            }
-          />
+          {/* Texas: the TREC checklist below replaces the generic systems status. */}
+          {!trec.applies && (
+            <Row
+              ok={missingStatus.length === 0}
+              label="Every system has a status"
+              value={
+                missingStatus.length === 0
+                  ? "All marked"
+                  : `${missingStatus.length} not marked`
+              }
+            />
+          )}
+          {trec.applies && (
+            <Row
+              ok={trecReady}
+              label="TREC form: every item has a checkbox"
+              value={trecReady ? "Ready" : `${trec.missing.length} still need one`}
+            />
+          )}
         </div>
 
-        {missingStatus.length > 0 && (
+        {trec.applies && !trecReady && (
+          <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
+            Texas reports use the TREC REI 7-6 form, which needs I, NI, NP or D on every item. Set the
+            rest in the TREC form panel on the{" "}
+            <Link
+              href={`/inspections/${inspectionId}/review#trec-form`}
+              className="font-medium underline underline-offset-4"
+            >
+              Review tab
+            </Link>
+            . Missing: {trec.missing.slice(0, 3).join(", ")}
+            {trec.missing.length > 3 ? `, and ${trec.missing.length - 3} more` : ""}.
+          </div>
+        )}
+
+        {!trec.applies && missingStatus.length > 0 && (
           <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900 space-y-1">
             <p>
               Most states require the report to say whether each system was inspected, not
@@ -287,7 +316,7 @@ export function FinalizePanel({
             type="button"
             size="lg"
             onClick={onFinalize}
-            disabled={pending || !allApproved}
+            disabled={pending || !allApproved || !trecReady}
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {pending ? "Generating PDF…" : "Finalize and generate PDF"}

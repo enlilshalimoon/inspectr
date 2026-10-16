@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { FinalizePanel } from "./finalize-panel";
+import { loadTrecStatus } from "@/lib/trec/load";
 import { sectionsNeedingStatus } from "@/lib/inspection/system-status";
 import { labelForSection } from "@/lib/supabase/sections";
 
@@ -30,6 +31,12 @@ export default async function FinalizePage({ params }: Props) {
     .eq("inspection_id", id)
     .eq("is_approved", false);
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const trec = user
+    ? await loadTrecStatus(supabase, id, user.id)
+    : { applies: false, missing: [] };
   // Systems inventory: warn (don't block) when a section has no status.
   const { data: sectionRows } = await supabase
     .from("inspection_sections")
@@ -59,6 +66,7 @@ export default async function FinalizePage({ params }: Props) {
       missingStatus={missingStatus}
       defaultClientEmail={inspection.client_email}
       clientName={inspection.client_name}
+      trec={trec}
     />
   );
 }

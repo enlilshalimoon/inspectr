@@ -8,7 +8,11 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { InspectionReportDoc, type ReportData } from "./report";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Finding, Photo } from "@/lib/supabase/types";
+import type { Finding, Photo, SectionType } from "@/lib/supabase/types";
+import { TrecReportDoc } from "./trec/rei76-doc";
+import { buildTrecReportData } from "./trec/build";
+import { loadReportForm } from "@/lib/trec/load";
+import { usesTrecForm, type ReportForm } from "@/lib/trec/form";
 import { isOwnStoragePath } from "@/lib/inspection/photos";
 import { readSectionStatus } from "@/lib/inspection/system-status";
 import { buildCompliance } from "@/lib/compliance/report";
@@ -23,7 +27,30 @@ export async function renderInspectionPdf(
     mode === "service" ? createServiceClient() : await createClient();
 
   const data = await loadReportData(supabase, inspectionId);
+
+  // Texas inspectors deliver the promulgated TREC REI 7-6 form instead.
+  const form = await loadReportForm(supabase, inspectionId);
+  if (form && usesTrecForm(data.inspector.license_state, form)) {
+    return renderToBuffer(<TrecReportDoc data={trecDataFrom(data, form)} />);
+  }
   return renderToBuffer(<InspectionReportDoc data={data} />);
+}
+
+function trecDataFrom(data: ReportData, form: ReportForm) {
+  const p = data.property;
+  const cityLine = [p.city, [p.state, p.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  return buildTrecReportData({
+    form,
+    findings: data.sections.flatMap((s) =>
+      s.findings.map((f) => ({ ...f, sectionType: s.section_type as SectionType })),
+    ),
+    clientName: data.client.name,
+    inspectionDate: data.visit.date,
+    propertyAddress: [p.address, cityLine].filter(Boolean).join(", "),
+    inspectorName: data.inspector.full_name,
+    inspectorLicense: data.inspector.license_number,
+    logoData: data.inspector.logo_data,
+  });
 }
 
 export async function loadReportData(
