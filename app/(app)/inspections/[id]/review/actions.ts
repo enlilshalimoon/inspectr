@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { renderInspectionPdf } from "@/lib/pdf/render";
 import { sendFounderEmail, firstInspectionFeedbackEmail } from "@/lib/email/send";
 import { withDismissed } from "@/lib/inspection/photos";
+import { loadTrecStatus } from "@/lib/trec/load";
 
 // All actions enforce RLS via the user's session client (no service role).
 // Each one revalidates the review page so server-rendered state stays in sync.
@@ -264,6 +265,15 @@ export async function finalizeInspection(
     return {
       ok: false,
       error: `${unapproved} finding${unapproved === 1 ? "" : "s"} still need approval before finalizing.`,
+    };
+  }
+
+  // Texas: the TREC form needs a checkbox on every item before it can go out.
+  const trec = await loadTrecStatus(supabase, inspectionId, user.id);
+  if (trec.missing.length) {
+    return {
+      ok: false,
+      error: `${trec.missing.length} TREC form item${trec.missing.length === 1 ? "" : "s"} still need a checkbox (I, NI, NP or D) on the Review tab, e.g. ${trec.missing[0]}.`,
     };
   }
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { FinalizePanel } from "./finalize-panel";
+import { loadTrecStatus } from "@/lib/trec/load";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -28,6 +29,13 @@ export default async function FinalizePage({ params }: Props) {
     .eq("inspection_id", id)
     .eq("is_approved", false);
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const trec = user
+    ? await loadTrecStatus(supabase, id, user.id)
+    : { applies: false, missing: [] };
+
   // Pre-sign the PDF if it exists so we can offer a download
   let pdfSignedUrl: string | null = null;
   if (inspection.pdf_url) {
@@ -49,6 +57,7 @@ export default async function FinalizePage({ params }: Props) {
       unapprovedCount={unapproved ?? 0}
       defaultClientEmail={inspection.client_email}
       clientName={inspection.client_name}
+      trec={trec}
     />
   );
 }
