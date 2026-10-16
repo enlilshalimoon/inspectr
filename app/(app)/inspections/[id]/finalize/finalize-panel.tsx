@@ -5,10 +5,10 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants, Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form-message";
-import { Check, Download, Link as LinkIcon, Loader2, FileText, Send } from "lucide-react";
+import { Check, Download, Link as LinkIcon, Loader2, FileText, Send, Unlock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { finalizeInspection, sendReportEmail } from "../review/actions";
+import { finalizeInspection, reopenInspection, sendReportEmail } from "../review/actions";
 
 type Props = {
   inspectionId: string;
@@ -69,6 +69,20 @@ export function FinalizePanel({
     });
   }
 
+  const [confirmReopen, setConfirmReopen] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
+  const [reopening, startReopen] = useTransition();
+
+  function onReopen() {
+    setReopenError(null);
+    startReopen(async () => {
+      const res = await reopenInspection({ inspection_id: inspectionId });
+      if (!res.ok) setReopenError(res.error);
+      else setConfirmReopen(false);
+      // Server action revalidates; page reloads unlocked.
+    });
+  }
+
   function copyShareLink() {
     if (!shareSlug) return;
     const url = `${window.location.origin}/report/${shareSlug}`;
@@ -105,8 +119,43 @@ export function FinalizePanel({
             </div>
             <p className="text-sm text-slate-600">
               Finalized {finalizedAt ? new Date(finalizedAt).toLocaleString() : ""}. The report is
-              now locked. {totalFindings} finding{totalFindings === 1 ? "" : "s"} approved.
+              locked, so the client link and the PDF always match.{" "}
+              {totalFindings} finding{totalFindings === 1 ? "" : "s"} approved.
             </p>
+            {confirmReopen ? (
+              <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-3 text-sm text-amber-900 space-y-2">
+                <p>
+                  Re-opening lets you edit again. Until you finalize again, the client link shows
+                  &ldquo;not available&rdquo; and the old PDF stays as it was. Finalizing again
+                  makes a new PDF{deliveredAt ? "; re-send it to the client if anything changed" : ""}.
+                </p>
+                <FormMessage message={reopenError} kind="error" />
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={onReopen} disabled={reopening}>
+                    {reopening ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlock className="h-4 w-4" />}
+                    Re-open report
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmReopen(false)}
+                    disabled={reopening}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmReopen(true)}
+                className="inline-flex items-center gap-1 text-sm text-slate-600 underline underline-offset-4 hover:text-slate-900"
+              >
+                <Unlock className="h-3.5 w-3.5" />
+                Need to change something? Re-open the report
+              </button>
+            )}
           </CardContent>
         </Card>
 
@@ -321,7 +370,9 @@ export function FinalizePanel({
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {pending ? "Generating PDF…" : "Finalize and generate PDF"}
           </Button>
-          <p className="text-xs text-slate-500">This locks the report from further edits.</p>
+          <p className="text-xs text-slate-500">
+            This locks the report. You can re-open it later, which makes a new PDF when you finalize again.
+          </p>
         </div>
       </CardContent>
     </Card>

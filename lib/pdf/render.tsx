@@ -22,11 +22,15 @@ type Mode = "session" | "service";
 export async function renderInspectionPdf(
   inspectionId: string,
   mode: Mode = "session",
+  // Finalize renders before it saves the status, so it passes the timestamp
+  // it is about to write.
+  finalizedAt?: string,
 ): Promise<Buffer> {
   const supabase =
     mode === "service" ? createServiceClient() : await createClient();
 
   const data = await loadReportData(supabase, inspectionId);
+  if (finalizedAt) data.finalized_at = finalizedAt;
 
   // Texas inspectors deliver the promulgated TREC REI 7-6 form instead.
   const form = await loadReportForm(supabase, inspectionId);

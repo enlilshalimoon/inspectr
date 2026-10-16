@@ -20,6 +20,7 @@
 // touches another inspector's photos.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { lockError } from "@/lib/inspection/lock";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { analyzePhoto, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
@@ -70,6 +71,13 @@ export async function POST(req: NextRequest) {
     Photo,
     "id" | "inspection_id" | "section_id" | "storage_path" | "ai_analysis"
   >;
+
+  // A finalized report is locked: no new or re-drafted findings until the
+  // inspector re-opens it.
+  const locked = await lockError(supabase, { inspectionId: photo.inspection_id });
+  if (locked) {
+    return NextResponse.json({ error: "report locked", message: locked }, { status: 409 });
+  }
 
   // ---------------------------------------------------------------------
   // Stage 1: vision analysis (or reuse if already cached on the row)

@@ -8,6 +8,7 @@ import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types
 import { EditableFindingCard } from "./finding-card";
 import { BulkApproveButton } from "./bulk-approve-button";
 import { TrecPanel } from "./trec-panel";
+import { isLockedStatus } from "@/lib/inspection/lock";
 import { isTexasLicense, itemsMissingStatus, resolveItems, usesTrecForm } from "@/lib/trec/form";
 import { loadFindingsForForm, loadReportForm } from "@/lib/trec/load";
 import { SectionStatusControl } from "./section-status";
@@ -108,7 +109,7 @@ export default async function ReviewPage({ params }: Props) {
   const remaining = totalCount - approvedCount;
   const pct = totalCount === 0 ? 0 : Math.round((approvedCount / totalCount) * 100);
   const allApproved = totalCount > 0 && remaining === 0;
-  const locked = inspection.status === "finalized" || inspection.status === "delivered";
+  const locked = isLockedStatus(inspection.status);
 
   // Systems inventory: every required section plus any optional one in use,
   // then the unused optional ones (fireplace, pool...) so they can be marked.
@@ -130,8 +131,25 @@ export default async function ReviewPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
+      {locked && (
+        <Card className="border-2 border-emerald-300 bg-emerald-50">
+          <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-sm text-emerald-900">
+              <span className="font-medium">Finalized and locked.</span> This is what the client
+              sees. To change anything, re-open the report on the Finalize tab.
+            </span>
+            <Link
+              href={`/inspections/${id}/finalize`}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-700 text-white hover:bg-emerald-800"
+            >
+              Finalize tab →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Approval-progress banner — sticky so it stays visible while scrolling */}
-      {totalCount > 0 && (
+      {totalCount > 0 && !locked && (
         <div
           data-approval-banner
           className="sticky top-2 z-20"
@@ -228,6 +246,10 @@ export default async function ReviewPage({ params }: Props) {
         </Card>
       )}
 
+      {/* A disabled fieldset turns off every edit control below (approve, edit,
+          delete, voice, status, TREC boxes) once the report is finalized. The
+          server actions refuse the edits too. */}
+      <fieldset disabled={locked} className="space-y-6 min-w-0 border-0 p-0 m-0">
       <div className="text-sm text-slate-600">
         Mark every system <span className="font-medium">Inspected</span>,{" "}
         <span className="font-medium">Not inspected</span> (with the reason) or{" "}
@@ -348,6 +370,7 @@ export default async function ReviewPage({ params }: Props) {
           }))}
         />
       )}
+      </fieldset>
     </div>
   );
 }
