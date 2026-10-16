@@ -14,6 +14,8 @@ import { buildTrecReportData } from "./trec/build";
 import { loadReportForm } from "@/lib/trec/load";
 import { usesTrecForm, type ReportForm } from "@/lib/trec/form";
 import { isOwnStoragePath } from "@/lib/inspection/photos";
+import { readSectionStatus } from "@/lib/inspection/system-status";
+import { buildCompliance } from "@/lib/compliance/report";
 
 type Mode = "session" | "service";
 
@@ -66,15 +68,15 @@ export async function loadReportData(
 
   const { data: inspector } = await supabase
     .from("users")
-    .select(
-      "full_name, company_name, company_logo_url, license_number, license_state, phone, default_disclaimer",
-    )
+    // "*" so license_expires / sop_standard come through once migration 0004
+    // adds them, without breaking before it does.
+    .select("*")
     .eq("id", insp.inspector_id)
     .maybeSingle();
 
   const { data: sectionRows } = await supabase
     .from("inspection_sections")
-    .select("id, section_type, section_order")
+    .select("*")
     .eq("inspection_id", inspectionId)
     .order("section_order");
 
@@ -139,8 +141,11 @@ export async function loadReportData(
     });
   }
 
-  const sections =
-    (sectionRows as { id: string; section_type: string; section_order: number }[] | null) ?? [];
+  const sections = (
+    (sectionRows as
+      | { id: string; section_type: string; section_order: number; system_status?: unknown; inspector_notes?: string | null }[]
+      | null) ?? []
+  ).map((s) => ({ ...s, status: readSectionStatus(s) }));
 
   // Fetch the logo as base64 so react-pdf can embed it
   let logoData: string | null = null;
@@ -192,11 +197,20 @@ export async function loadReportData(
       company_logo_url: inspector?.company_logo_url ?? null,
       logo_data: logoData,
       default_disclaimer: inspector?.default_disclaimer ?? null,
+      license_expires: (inspector?.license_expires as string | null | undefined) ?? null,
     },
     sections: sections.map((s) => ({
       section_type: s.section_type,
+      status: s.status,
       findings: findingsBySection.get(s.id) ?? [],
     })),
+    compliance: buildCompliance({
+      licenseState: inspector?.license_state ?? null,
+      propertyState: insp.property_state,
+      sopStandard: (inspector?.sop_standard as string | null | undefined) ?? null,
+      yearBuilt: insp.property_year_built,
+      sections,
+    }),
     finalized_at: insp.finalized_at ?? new Date().toISOString(),
   };
 }

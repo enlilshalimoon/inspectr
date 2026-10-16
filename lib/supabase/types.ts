@@ -55,6 +55,9 @@ export interface User {
   default_disclaimer: string | null;
   default_signature_url: string | null;
   onboarding_completed_at: string | null;
+  // Added by migration 0004; absent until it runs.
+  license_expires?: string | null;
+  sop_standard?: string | null;
 }
 
 export interface Inspection {
@@ -91,6 +94,8 @@ export interface InspectionSection {
   section_order: number;
   summary_text: string | null;
   inspector_notes: string | null;
+  // Added by migration 0004; absent until it runs. See lib/inspection/system-status.ts.
+  system_status?: unknown;
   created_at: string;
   updated_at: string;
 }

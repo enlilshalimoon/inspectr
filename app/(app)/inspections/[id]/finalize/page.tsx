@@ -3,6 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { FinalizePanel } from "./finalize-panel";
 import { loadTrecStatus } from "@/lib/trec/load";
+import { sectionsNeedingStatus } from "@/lib/inspection/system-status";
+import { labelForSection } from "@/lib/supabase/sections";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -35,6 +37,12 @@ export default async function FinalizePage({ params }: Props) {
   const trec = user
     ? await loadTrecStatus(supabase, id, user.id)
     : { applies: false, missing: [] };
+  // Systems inventory: warn (don't block) when a section has no status.
+  const { data: sectionRows } = await supabase
+    .from("inspection_sections")
+    .select("*")
+    .eq("inspection_id", id);
+  const missingStatus = sectionsNeedingStatus(sectionRows ?? []).map(labelForSection);
 
   // Pre-sign the PDF if it exists so we can offer a download
   let pdfSignedUrl: string | null = null;
@@ -55,6 +63,7 @@ export default async function FinalizePage({ params }: Props) {
       pdfSignedUrl={pdfSignedUrl}
       totalFindings={totalFindings ?? 0}
       unapprovedCount={unapproved ?? 0}
+      missingStatus={missingStatus}
       defaultClientEmail={inspection.client_email}
       clientName={inspection.client_name}
       trec={trec}

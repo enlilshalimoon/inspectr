@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { FormMessage } from "@/components/ui/form-message";
 import { createClient } from "@/lib/supabase/client";
 import { updateLogo, updateSettings } from "./actions";
+import { defaultSop } from "@/lib/compliance/state-rules";
 
 type Defaults = {
   full_name: string;
@@ -17,11 +18,23 @@ type Defaults = {
   license_state: string;
   phone: string;
   default_disclaimer: string;
+  license_expires: string;
+  sop_standard: string;
   company_logo_url: string | null;
   logo_signed_url: string | null;
 };
 
-export function SettingsForm({ userId, defaults }: { userId: string; defaults: Defaults }) {
+export function SettingsForm({
+  userId,
+  defaults,
+  complianceFields,
+}: {
+  userId: string;
+  defaults: Defaults;
+  // False until migration 0004 adds license_expires / sop_standard.
+  complianceFields: boolean;
+}) {
+  const [licenseState, setLicenseState] = useState(defaults.license_state);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -40,6 +53,12 @@ export function SettingsForm({ userId, defaults }: { userId: string; defaults: D
         license_state: String(formData.get("license_state") ?? ""),
         phone: String(formData.get("phone") ?? ""),
         default_disclaimer: String(formData.get("default_disclaimer") ?? ""),
+        ...(complianceFields
+          ? {
+              license_expires: String(formData.get("license_expires") ?? ""),
+              sop_standard: String(formData.get("sop_standard") ?? ""),
+            }
+          : {}),
       });
       if (!res.ok) setError(res.error);
       else setSuccess("Saved.");
@@ -165,9 +184,40 @@ export function SettingsForm({ userId, defaults }: { userId: string; defaults: D
               <Input id="license_number" name="license_number" defaultValue={defaults.license_number} />
             </Field>
             <Field id="license_state" label="State">
-              <Input id="license_state" name="license_state" maxLength={2} defaultValue={defaults.license_state} />
+              <Input
+                id="license_state"
+                name="license_state"
+                maxLength={2}
+                value={licenseState}
+                onChange={(e) => setLicenseState(e.target.value)}
+              />
             </Field>
           </div>
+          {complianceFields && (
+            <>
+              <Field id="license_expires" label="License expiration date">
+                <Input
+                  id="license_expires"
+                  name="license_expires"
+                  type="date"
+                  defaultValue={defaults.license_expires}
+                />
+              </Field>
+              <Field id="sop_standard" label="Standard of practice you follow">
+                <Input
+                  id="sop_standard"
+                  name="sop_standard"
+                  maxLength={200}
+                  defaultValue={defaults.sop_standard}
+                  placeholder={defaultSop(licenseState)}
+                />
+              </Field>
+              <p className="text-xs text-slate-500 -mt-2">
+                Shown in the report. Leave blank to use the default above. Kentucky inspectors: use
+                the one you chose at licensure (ASHI or InterNACHI).
+              </p>
+            </>
+          )}
           <Field id="phone" label="Phone">
             <Input id="phone" name="phone" type="tel" autoComplete="tel" defaultValue={defaults.phone} />
           </Field>
