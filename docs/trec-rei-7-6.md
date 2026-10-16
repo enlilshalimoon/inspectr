@@ -6,7 +6,7 @@ Texas inspectors (users.license_state = TX) deliver TREC's promulgated Property 
 
 - **Item list:** `lib/trec/rei76.ts` holds the six sections and 41 items, with labels copied verbatim from the form.
 - **Drafting:** `lib/trec/form.ts` maps each finding to an item (by section and keywords; the inspector can move it). An item with an approved finding is drafted **I + D**, or just **I** if every finding on it is "Informational". The inspector sets every other item.
-- **Saving:** state lives in `inspections.report_form` (migration 0004). The Review tab's "Texas TREC form" panel writes it through `patch_report_form()`, which updates one key at a time so concurrent edits don't overwrite each other.
+- **Saving:** state lives in `inspections.report_form` (migration 0005). The Review tab's "Texas TREC form" panel writes it through `patch_report_form()`, which updates one key at a time so concurrent edits don't overwrite each other.
 - **Finalize:** blocked until every printed item has at least one box.
 - **PDF:** `lib/pdf/trec/rei76-doc.tsx`.
   - Pages 1–2 and the header and footer of every form page are drawn from `rei76-layout.ts`, which holds each word's x position and baseline plus every rule and border, extracted from TREC's fillable PDF by `scripts/trec/extract-layout.py`.

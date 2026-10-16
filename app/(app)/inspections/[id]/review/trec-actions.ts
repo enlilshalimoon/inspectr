@@ -8,7 +8,7 @@ import { REI76_ITEM_IDS, trecItem } from "@/lib/trec/rei76";
 import type { ActionResult } from "./actions";
 
 // Edits to inspections.report_form for the Texas REI 7-6 report. Every write
-// is one key, applied atomically by patch_report_form() (migration 0004) under
+// is one key, applied atomically by patch_report_form() (migration 0005) under
 // the inspector's own session, so RLS decides which inspection can change.
 
 const COST_ERROR =
@@ -31,7 +31,7 @@ async function patch(inspectionId: string, path: string[], value: unknown): Prom
     return {
       ok: false,
       error: /patch_report_form|report_form/.test(error.message)
-        ? "TREC form storage isn't set up yet (database migration 0004)."
+        ? "TREC form storage isn't set up yet (database migration 0005)."
         : error.message,
     };
   }

@@ -3,7 +3,7 @@
 // tested in form.test.ts); the DB read/write lives in the review actions and
 // lib/pdf/render.tsx.
 //
-// Storage: inspections.report_form (jsonb, migration 0004):
+// Storage: inspections.report_form (jsonb, migration 0005):
 //   {
 //     use_trec?: boolean,              // default true for TX inspectors
 //     items: { "I.A": ItemEntry, ... }, // only items the inspector touched

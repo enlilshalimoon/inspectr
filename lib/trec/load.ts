@@ -13,7 +13,7 @@ import {
 
 /**
  * The inspection's report_form, or null when the column doesn't exist yet
- * (migration 0004 not applied) — callers then fall back to the standard
+ * (migration 0005 not applied) — callers then fall back to the standard
  * Lookover report so nothing breaks before the migration runs.
  */
 export async function loadReportForm(
