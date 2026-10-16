@@ -6,6 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { renderInspectionPdf } from "@/lib/pdf/render";
 import { sendFounderEmail, firstInspectionFeedbackEmail } from "@/lib/email/send";
 import { withDismissed } from "@/lib/inspection/photos";
+import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
+import type { SectionType } from "@/lib/supabase/types";
+import {
+  SYSTEM_STATUSES,
+  encodeNotesFallback,
+  isMissingColumnError,
+  type SectionStatus,
+} from "@/lib/inspection/system-status";
 
 // All actions enforce RLS via the user's session client (no service role).
 // Each one revalidates the review page so server-rendered state stays in sync.
@@ -85,6 +93,80 @@ export async function approveAllInSection(
 
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/inspections/${parsed.data.inspection_id}/review`);
+  return { ok: true };
+}
+
+const sectionStatusSchema = z
+  .object({
+    inspection_id: z.string().uuid(),
+    section_type: z.enum(STANDARD_SECTIONS.map((s) => s.type) as [SectionType, ...SectionType[]]),
+    status: z.enum(SYSTEM_STATUSES),
+    reason: z.string().max(500).optional().nullable(),
+    description: z.string().max(1000).optional().nullable(),
+  })
+  .refine((v) => v.status !== "not_inspected" || !!v.reason?.trim(), {
+    message: "Say why it wasn't inspected (state rules require a reason).",
+    path: ["reason"],
+  });
+
+// Saves the systems-inventory status for one section, creating the section
+// row if it's an optional one (fireplace, pool...) the inspection never used.
+export async function setSectionStatus(
+  input: z.infer<typeof sectionStatusSchema>,
+): Promise<ActionResult> {
+  const parsed = sectionStatusSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const { inspection_id, section_type } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: insp } = await supabase
+    .from("inspections")
+    .select("id, status")
+    .eq("id", inspection_id)
+    .maybeSingle();
+  if (!insp) return { ok: false, error: "Inspection not found." };
+  if (insp.status === "finalized" || insp.status === "delivered") {
+    return { ok: false, error: "This report is finalized and locked." };
+  }
+
+  const { data: existing } = await supabase
+    .from("inspection_sections")
+    .select("id")
+    .eq("inspection_id", inspection_id)
+    .eq("section_type", section_type)
+    .maybeSingle();
+  let sectionId = existing?.id as string | undefined;
+  if (!sectionId) {
+    const order = STANDARD_SECTIONS.find((s) => s.type === section_type)?.order ?? 999;
+    const { data: created, error } = await supabase
+      .from("inspection_sections")
+      .insert({ inspection_id, section_type, section_order: order })
+      .select("id")
+      .single();
+    if (error || !created) return { ok: false, error: error?.message ?? "Could not add section." };
+    sectionId = created.id as string;
+  }
+
+  const value: SectionStatus = {
+    status: parsed.data.status,
+    reason: parsed.data.reason?.trim() || null,
+    description: parsed.data.description?.trim() || null,
+  };
+  let { error } = await supabase
+    .from("inspection_sections")
+    .update({ system_status: value })
+    .eq("id", sectionId);
+  if (isMissingColumnError(error, "system_status")) {
+    // Migration 0004 not run yet: park it in inspector_notes (unused elsewhere).
+    ({ error } = await supabase
+      .from("inspection_sections")
+      .update({ inspector_notes: encodeNotesFallback(value) })
+      .eq("id", sectionId));
+  }
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/inspections/${inspection_id}/review`);
+  revalidatePath(`/inspections/${inspection_id}/finalize`);
   return { ok: true };
 }
 

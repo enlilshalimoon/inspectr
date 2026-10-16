@@ -13,6 +13,11 @@ const schema = z.object({
   license_state: z.string().max(2).optional().nullable(),
   phone: z.string().max(40).optional().nullable(),
   default_disclaimer: z.string().max(8000).optional().nullable(),
+  // Only sent once migration 0004 has added the columns.
+  license_expires: z
+    .union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date.")])
+    .optional(),
+  sop_standard: z.string().max(200).optional(),
 });
 
 export type SettingsResult = { ok: true } | { ok: false; error: string };
@@ -29,7 +34,7 @@ export async function updateSettings(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
 
-  const patch = {
+  const patch: Record<string, string | null> = {
     full_name: parsed.data.full_name,
     company_name: parsed.data.company_name.trim() || null,
     license_number: parsed.data.license_number ?? null,
@@ -37,6 +42,8 @@ export async function updateSettings(
     phone: parsed.data.phone ?? null,
     default_disclaimer: parsed.data.default_disclaimer ?? null,
   };
+  if (parsed.data.license_expires !== undefined) patch.license_expires = parsed.data.license_expires || null;
+  if (parsed.data.sop_standard !== undefined) patch.sop_standard = parsed.data.sop_standard.trim() || null;
   const { error } = await supabase.from("users").update(patch).eq("id", user.id);
   if (error) return { ok: false, error: error.message };
 

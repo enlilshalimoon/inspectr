@@ -19,6 +19,8 @@ type Props = {
   pdfSignedUrl: string | null;
   totalFindings: number;
   unapprovedCount: number;
+  // Sections with no Inspected / Not inspected / Not present status.
+  missingStatus: string[];
   defaultClientEmail: string | null;
   clientName: string | null;
 };
@@ -32,6 +34,7 @@ export function FinalizePanel({
   pdfSignedUrl,
   totalFindings,
   unapprovedCount,
+  missingStatus,
   defaultClientEmail,
   clientName,
 }: Props) {
@@ -231,7 +234,37 @@ export function FinalizePanel({
                 : `${unapprovedCount} still need approval`
             }
           />
+          <Row
+            ok={missingStatus.length === 0}
+            label="Every system has a status"
+            value={
+              missingStatus.length === 0
+                ? "All marked"
+                : `${missingStatus.length} not marked`
+            }
+          />
         </div>
+
+        {missingStatus.length > 0 && (
+          <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900 space-y-1">
+            <p>
+              Most states require the report to say whether each system was inspected, not
+              inspected (and why), or not present. These have no status yet and will show as
+              &ldquo;Not recorded&rdquo; in the report:
+            </p>
+            <p className="font-medium">{missingStatus.join(", ")}</p>
+            <p>
+              Set them on the{" "}
+              <Link
+                href={`/inspections/${inspectionId}/review`}
+                className="font-medium underline underline-offset-4"
+              >
+                Review tab
+              </Link>
+              . You can still finalize without them.
+            </p>
+          </div>
+        )}
 
         {!allApproved && totalFindings > 0 && (
           <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
