@@ -13,10 +13,12 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select(
-      "full_name, company_name, company_logo_url, license_number, license_state, phone, default_disclaimer",
-    )
+    // "*" so the page still loads before migration 0004 adds
+    // license_expires / sop_standard; their fields only show once it has.
+    .select("*")
+    .eq("id", user.id)
     .single();
+  const hasComplianceColumns = !!profile && "sop_standard" in profile;
 
   // Pre-sign the logo URL if it's set
   let logoSignedUrl: string | null = null;
@@ -37,6 +39,7 @@ export default async function SettingsPage() {
       </div>
       <SettingsForm
         userId={user.id}
+        complianceFields={hasComplianceColumns}
         defaults={{
           full_name: profile?.full_name ?? "",
           company_name: profile?.company_name ?? "",
@@ -44,6 +47,8 @@ export default async function SettingsPage() {
           license_state: profile?.license_state ?? "",
           phone: profile?.phone ?? "",
           default_disclaimer: profile?.default_disclaimer ?? "",
+          license_expires: (profile?.license_expires as string | null | undefined) ?? "",
+          sop_standard: (profile?.sop_standard as string | null | undefined) ?? "",
           company_logo_url: profile?.company_logo_url ?? null,
           logo_signed_url: logoSignedUrl,
         }}

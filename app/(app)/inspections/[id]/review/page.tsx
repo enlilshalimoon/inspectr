@@ -7,6 +7,9 @@ import { labelForSection } from "@/lib/supabase/sections";
 import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types";
 import { EditableFindingCard } from "./finding-card";
 import { BulkApproveButton } from "./bulk-approve-button";
+import { SectionStatusControl } from "./section-status";
+import { readSectionStatus, sectionsNeedingStatus } from "@/lib/inspection/system-status";
+import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -30,7 +33,8 @@ export default async function ReviewPage({ params }: Props) {
         .maybeSingle(),
       supabase
         .from("inspection_sections")
-        .select("id, section_type, section_order")
+        // "*" so the page still loads before migration 0004 adds system_status.
+        .select("*")
         .eq("inspection_id", id)
         .order("section_order"),
       supabase
@@ -88,6 +92,25 @@ export default async function ReviewPage({ params }: Props) {
   const remaining = totalCount - approvedCount;
   const pct = totalCount === 0 ? 0 : Math.round((approvedCount / totalCount) * 100);
   const allApproved = totalCount > 0 && remaining === 0;
+  const locked = inspection.status === "finalized" || inspection.status === "delivered";
+
+  // Systems inventory: every required section plus any optional one in use,
+  // then the unused optional ones (fireplace, pool...) so they can be marked.
+  type SectionRow = { id: string; section_type: string; section_order: number; system_status?: unknown; inspector_notes?: string | null };
+  const sectionRows = (sections ?? []) as SectionRow[];
+  const rowByType = new Map(sectionRows.map((r) => [r.section_type, r]));
+  const inventory = [
+    ...sectionRows,
+    ...STANDARD_SECTIONS.filter((d) => d.required && !rowByType.has(d.type)).map((d) => ({
+      id: null,
+      section_type: d.type,
+      section_order: d.order,
+      system_status: null,
+    })),
+  ].sort((a, b) => a.section_order - b.section_order);
+  const unusedOptional = STANDARD_SECTIONS.filter((d) => !d.required && !rowByType.has(d.type));
+  const missingStatus = sectionsNeedingStatus(sectionRows);
+  const nothingCaptured = (photoRows?.length ?? 0) === 0 && totalCount === 0;
 
   return (
     <div className="space-y-6">
@@ -162,9 +185,9 @@ export default async function ReviewPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {!sections?.length || ((photoRows?.length ?? 0) === 0 && totalCount === 0) ? (
-        // With sections but no photos, every section below renders null and
-        // the page was blank under the stats card, with no way forward.
+      {nothingCaptured && (
+        // With sections but no photos, the page was blank under the stats
+        // card, with no way forward.
         <Card>
           <CardContent className="p-10 text-center space-y-3">
             <p className="text-sm text-slate-500">
@@ -179,15 +202,29 @@ export default async function ReviewPage({ params }: Props) {
             </Link>
           </CardContent>
         </Card>
-      ) : (
-        sections.map((s) => {
-          const sectionFindings = sortBySeverity(findingsBySection.get(s.id) ?? []);
-          const sectionPhotos = photosBySection.get(s.id) ?? [];
+      )}
+
+      <div className="text-sm text-slate-600">
+        Mark every system <span className="font-medium">Inspected</span>,{" "}
+        <span className="font-medium">Not inspected</span> (with the reason) or{" "}
+        <span className="font-medium">Not present</span>. Most states require this list in the
+        report.{" "}
+        {missingStatus.length > 0 ? (
+          <span className="text-amber-800 font-medium">
+            {missingStatus.length} system{missingStatus.length === 1 ? "" : "s"} still need a status.
+          </span>
+        ) : (
+          <span className="text-emerald-700 font-medium">All systems marked.</span>
+        )}
+      </div>
+
+      {inventory.map((s) => {
+          const sectionFindings = s.id ? sortBySeverity(findingsBySection.get(s.id) ?? []) : [];
+          const sectionPhotos = s.id ? photosBySection.get(s.id) ?? [] : [];
           const sectionPhotoCount = (photoRows ?? []).filter((p) => p.section_id === s.id).length;
-          if (sectionPhotos.length === 0 && sectionFindings.length === 0) return null;
           const approvedInSection = sectionFindings.filter((f) => f.is_approved).length;
           return (
-            <section key={s.id} className="space-y-3">
+            <section key={s.section_type} className="space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-baseline gap-3 min-w-0">
                   <h2 className="text-lg font-medium text-slate-900">
@@ -205,6 +242,13 @@ export default async function ReviewPage({ params }: Props) {
                   approvedCount={approvedInSection}
                 />
               </div>
+
+              <SectionStatusControl
+                inspectionId={id}
+                sectionType={s.section_type as SectionType}
+                initial={readSectionStatus(s)}
+                locked={locked}
+              />
 
               {sectionPhotos.length > 0 && (
                 <div className="space-y-1">
@@ -242,7 +286,28 @@ export default async function ReviewPage({ params }: Props) {
               )}
             </section>
           );
-        })
+        })}
+
+      {unusedOptional.length > 0 && (
+        <section className="space-y-3 pt-2">
+          <h2 className="text-lg font-medium text-slate-900">Other systems</h2>
+          <p className="text-xs text-slate-500">
+            Only appear in the report once you set a status. Mark a fireplace{" "}
+            <span className="font-medium">Not present</span> if the home has none.
+          </p>
+          {unusedOptional.map((d) => (
+            <div key={d.type} className="space-y-1.5">
+              <div className="text-sm font-medium text-slate-800">{d.label}</div>
+              <SectionStatusControl
+                inspectionId={id}
+                sectionType={d.type}
+                initial={null}
+                locked={locked}
+                optional
+              />
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );

@@ -12,6 +12,21 @@ import {
 } from "@react-pdf/renderer";
 import type { Finding, Severity } from "@/lib/supabase/types";
 import { labelForSection } from "@/lib/supabase/sections";
+import type { SectionStatus } from "@/lib/inspection/system-status";
+import {
+  formatDateOnly,
+  licenseLine,
+  ncSummaryItems,
+  recommendationFor,
+  statusLabel,
+  wiSummaryGroups,
+  type Compliance,
+} from "@/lib/compliance/report";
+import {
+  NC_SUMMARY_STATEMENT,
+  PA_UNREASONABLE_RISK_LABEL,
+  WI_SUMMARY_STATEMENTS,
+} from "@/lib/compliance/state-rules";
 
 // ---------------------------------------------------------------------------
 // Types the renderer expects
@@ -46,11 +61,14 @@ export interface ReportData {
     company_logo_url: string | null;
     logo_data: string | null;
     default_disclaimer: string | null;
+    license_expires: string | null;
   };
   sections: {
     section_type: string;
+    status: SectionStatus | null;
     findings: (Finding & { photoData?: string | null })[];
   }[];
+  compliance: Compliance;
   finalized_at: string;
 }
 
@@ -220,6 +238,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLOR.slate200,
   },
+  // Systems inventory table
+  invRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR.slate200,
+    paddingVertical: 5,
+  },
+  invSystem: { width: 150, fontSize: 9.5, color: COLOR.slate900, fontWeight: 700 },
+  invStatus: { width: 90, fontSize: 9.5 },
+  invNote: { flex: 1, fontSize: 9, color: COLOR.slate700, lineHeight: 1.4 },
+  // Statements
+  statement: { fontSize: 9.5, color: COLOR.slate700, lineHeight: 1.5, marginBottom: 6 },
+  conspicuous: {
+    borderWidth: 1.5,
+    borderColor: COLOR.slate900,
+    padding: 10,
+    marginBottom: 8,
+  },
+  conspicuousText: { fontSize: 10, fontWeight: 700, color: COLOR.slate900, lineHeight: 1.5, marginBottom: 5 },
+  bullet: { fontSize: 9.5, color: COLOR.slate700, lineHeight: 1.5, marginBottom: 2, paddingLeft: 8 },
+  sigLine: { borderBottomWidth: 1, borderBottomColor: COLOR.slate900, width: 260, marginTop: 28, marginBottom: 4 },
   // Disclaimer
   disclaimer: {
     fontSize: 9,
@@ -233,7 +272,10 @@ const styles = StyleSheet.create({
 // PDF document
 // ---------------------------------------------------------------------------
 export function InspectionReportDoc({ data }: { data: ReportData }) {
-  const allFindings = data.sections.flatMap((s) => s.findings);
+  const c = data.compliance;
+  const allFindings = data.sections.flatMap((s) =>
+    s.findings.map((f) => ({ ...f, section_type: s.section_type })),
+  );
   const severityCounts = SEV_ORDER.map((s) => ({
     severity: s,
     count: allFindings.filter((f) => f.severity === s).length,
@@ -245,13 +287,7 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
   ]
     .filter(Boolean)
     .join(" · ");
-  const { company_name, license_number, license_state } = data.inspector;
-  const signatureLine = [
-    company_name,
-    license_number && `License ${license_number}${license_state ? ` (${license_state})` : ""}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const license = licenseLine(data.inspector);
 
   return (
     <Document
@@ -288,11 +324,8 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
                   {data.inspector.company_name}
                 </Text>
               )}
-              {data.inspector.license_number && (
-                <Text style={{ fontSize: 9, color: COLOR.slate500, marginTop: 4 }}>
-                  License {data.inspector.license_number}
-                  {data.inspector.license_state ? ` (${data.inspector.license_state})` : ""}
-                </Text>
+              {license && (
+                <Text style={{ fontSize: 9, color: COLOR.slate500, marginTop: 4 }}>{license}</Text>
               )}
               {data.inspector.phone && (
                 <Text style={{ fontSize: 9, color: COLOR.slate500 }}>{data.inspector.phone}</Text>
@@ -306,13 +339,18 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
                   {data.client.email}
                 </Text>
               )}
+              {data.client.phone && (
+                <Text style={{ fontSize: 9, color: COLOR.slate500 }}>{data.client.phone}</Text>
+              )}
             </View>
           </View>
 
           <View style={{ flexDirection: "row", gap: 48, marginTop: 24 }}>
             <View style={{ flex: 1 }}>
               <Text style={styles.coverLabel}>Inspection date</Text>
-              <Text style={styles.coverValue}>{data.visit.date ?? "—"}</Text>
+              <Text style={styles.coverValue}>
+                {data.visit.date ? formatDateOnly(data.visit.date) : "—"}
+              </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.coverLabel}>Conditions</Text>
@@ -333,11 +371,63 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
           AI-assisted draft, reviewed and approved by {data.inspector.full_name}
           {data.inspector.license_number ? `, License ${data.inspector.license_number}` : ""}
           {" · "}
-          Finalized {formatDate(data.finalized_at)}
+          Report prepared {formatDate(data.finalized_at)}
         </Text>
       </Page>
 
-      {/* Summary page */}
+      {/* State-mandated summary pages come right after the cover. */}
+      {c.ncSummary && (
+        <Page size="LETTER" style={styles.page}>
+          <Text style={styles.h1}>Summary page</Text>
+          <View style={styles.conspicuous}>
+            <Text style={styles.conspicuousText}>{NC_SUMMARY_STATEMENT}</Text>
+          </View>
+          <Text style={[styles.body, { marginBottom: 8 }]}>
+            Systems or components that do not function as intended, or that appear not to and need
+            further evaluation by a specialist:
+          </Text>
+          <SummaryList
+            items={sortBySeverity(ncSummaryItems(allFindings)).map((f) => ({
+              key: f.id,
+              label: SEV_LABEL[f.severity],
+              title: f.title,
+              where: labelForSection(f.section_type as never),
+            }))}
+          />
+          <PageFooter inspector={data.inspector} />
+        </Page>
+      )}
+      {c.wiSummary && (
+        <Page size="LETTER" style={styles.page}>
+          <Text style={styles.h1}>Summary page</Text>
+          {WI_SUMMARY_STATEMENTS.map((t) => (
+            <Text key={t.slice(0, 20)} style={styles.statement}>
+              {t}
+            </Text>
+          ))}
+          <Text style={styles.h2}>Defects</Text>
+          <SummaryList
+            items={sortBySeverity(wiSummaryGroups(allFindings).defects).map((f) => ({
+              key: f.id,
+              label: "Defect",
+              title: f.title,
+              where: labelForSection(f.section_type as never),
+            }))}
+          />
+          <Text style={styles.h2}>Repairs, further evaluation, monitoring and maintenance</Text>
+          <SummaryList
+            items={sortBySeverity(wiSummaryGroups(allFindings).other).map((f) => ({
+              key: f.id,
+              label: f.label,
+              title: f.title,
+              where: labelForSection(f.section_type as never),
+            }))}
+          />
+          <PageFooter inspector={data.inspector} />
+        </Page>
+      )}
+
+      {/* Summary + systems inventory */}
       <Page size="LETTER" style={styles.page}>
         <Text style={styles.h1}>Inspection summary</Text>
         <Text style={styles.body}>{fullAddress}</Text>
@@ -347,12 +437,12 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
           {severityCounts
             .filter((s) => s.count > 0)
             .map((s) => {
-              const c = SEV_COLOR[s.severity];
+              const col = SEV_COLOR[s.severity];
               return (
                 <View key={s.severity} style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>{SEV_LABEL[s.severity]}</Text>
-                  <View style={[styles.pill, { backgroundColor: c.bg, color: c.fg, borderColor: c.border }]}>
-                    <Text style={{ color: c.fg }}>{s.count}</Text>
+                  <View style={[styles.pill, { backgroundColor: col.bg, color: col.fg, borderColor: col.border }]}>
+                    <Text style={{ color: col.fg }}>{s.count}</Text>
                   </View>
                 </View>
               );
@@ -375,72 +465,161 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
           )}
         </View>
 
+        <View style={{ marginTop: 18 }}>
+          <Text style={styles.h2}>Scope</Text>
+          <Text style={styles.body}>{c.scopeStatement}</Text>
+        </View>
+
+        <View style={{ marginTop: 18 }}>
+          <Text style={styles.h2} minPresenceAhead={60}>
+            Systems inventory
+          </Text>
+          {data.sections.map((s) => (
+            <View key={s.section_type} style={styles.invRow} wrap={false}>
+              <Text style={styles.invSystem}>{labelForSection(s.section_type as never)}</Text>
+              <Text style={[styles.invStatus, { color: statusColor(s.status) }]}>
+                {statusLabel(s.status)}
+              </Text>
+              <Text style={styles.invNote}>{inventoryNote(s)}</Text>
+            </View>
+          ))}
+        </View>
+
         <PageFooter inspector={data.inspector} />
       </Page>
 
-      {/* Findings pages */}
-      {data.sections
-        .filter((s) => s.findings.length > 0)
-        .map((s) => (
-          <Page key={s.section_type} size="LETTER" style={styles.page}>
-            <View style={styles.sectionHeader}>
+      {/* Every section: status, description, then findings */}
+      <Page size="LETTER" style={styles.page}>
+        {data.sections.map((s) => (
+          <View key={s.section_type} style={{ marginBottom: 6 }}>
+            <View style={styles.sectionHeader} minPresenceAhead={80}>
               <Text style={styles.h1}>{labelForSection(s.section_type as never)}</Text>
-              <Text style={styles.body}>
-                {s.findings.length} finding{s.findings.length === 1 ? "" : "s"}
+              <Text style={[styles.body, { color: statusColor(s.status) }]}>
+                {statusLabel(s.status)}
               </Text>
             </View>
-
-            {sortBySeverity(s.findings).map((f) => {
-              const c = SEV_COLOR[f.severity];
-              return (
-                <View key={f.id} style={styles.findingCard} wrap={false}>
-                  <View style={styles.findingHeader}>
-                    <View style={[styles.pill, { backgroundColor: c.bg, color: c.fg, borderColor: c.border }]}>
-                      <Text style={{ color: c.fg }}>{SEV_LABEL[f.severity]}</Text>
+            {s.status?.description && (
+              <Text style={[styles.body, { marginBottom: 4 }]}>
+                Description: {s.status.description}
+              </Text>
+            )}
+            {s.status?.status !== "inspected" && s.status?.reason && (
+              <Text style={[styles.body, { marginBottom: 4 }]}>
+                {s.status.status === "not_inspected" ? "Reason not inspected" : "Note"}:{" "}
+                {s.status.reason}
+              </Text>
+            )}
+            {s.findings.length === 0 ? (
+              s.status?.status === "inspected" ? (
+                <Text style={[styles.body, { color: COLOR.slate500, marginBottom: 6 }]}>
+                  No deficiencies observed.
+                </Text>
+              ) : null
+            ) : (
+              sortBySeverity(s.findings).map((f) => {
+                const col = SEV_COLOR[f.severity];
+                const rec = recommendationFor(f);
+                return (
+                  <View key={f.id} style={styles.findingCard} wrap={false}>
+                    <View style={styles.findingHeader}>
+                      <View style={[styles.pill, { backgroundColor: col.bg, color: col.fg, borderColor: col.border }]}>
+                        <Text style={{ color: col.fg }}>{SEV_LABEL[f.severity]}</Text>
+                      </View>
                     </View>
+                    {c.flagUnreasonableRisk && f.severity === "safety_hazard" && (
+                      <Text style={{ fontSize: 10, fontWeight: 700, color: COLOR.red700, marginBottom: 4 }}>
+                        {PA_UNREASONABLE_RISK_LABEL.toUpperCase()}
+                      </Text>
+                    )}
+                    <Text style={styles.findingTitle}>{f.title}</Text>
+                    <Text style={styles.findingBody}>{f.description}</Text>
+                    {rec && <Text style={styles.actionBlock}>Recommendation: {rec}</Text>}
+                    {f.photoData && (
+                      <View style={styles.photoRow}>
+                        <Image src={f.photoData} style={styles.photo} />
+                      </View>
+                    )}
                   </View>
-                  <Text style={styles.findingTitle}>{f.title}</Text>
-                  <Text style={styles.findingBody}>{f.description}</Text>
-                  {f.recommended_action && (
-                    <Text style={styles.actionBlock}>
-                      Recommended action: {f.recommended_action}
-                    </Text>
-                  )}
-                  {f.photoData && (
-                    <View style={styles.photoRow}>
-                      <Image src={f.photoData} style={styles.photo} />
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-
-            <PageFooter inspector={data.inspector} />
-          </Page>
+                );
+              })
+            )}
+          </View>
         ))}
 
-      {/* Disclaimer + signature */}
+        <PageFooter inspector={data.inspector} />
+      </Page>
+
+      {/* Standards, limitations, state statements, signature */}
       <Page size="LETTER" style={styles.page}>
-        <Text style={styles.h1}>Disclaimer and limitations</Text>
-        {data.inspector.default_disclaimer ? (
-          <Text style={styles.disclaimer}>{data.inspector.default_disclaimer}</Text>
-        ) : (
-          <Text style={styles.disclaimer}>
-            This report reflects the inspector&apos;s observations on the date of
-            inspection. It is a visual, non-invasive assessment of accessible
-            systems and components and is not a guarantee, warranty, or
-            insurance policy.
-          </Text>
+        <Text style={styles.h1}>Standards, scope and limitations</Text>
+        <Text style={styles.statement}>{c.scopeStatement}</Text>
+
+        {c.notInspected.length > 0 && (
+          <View style={{ marginTop: 6 }}>
+            <Text style={styles.h3}>Limited inspection: systems not inspected</Text>
+            {c.notInspected.map((n) => (
+              <Text key={n.label} style={styles.bullet}>
+                • {n.label}
+                {n.reason ? `: ${n.reason}` : ""}
+              </Text>
+            ))}
+          </View>
         )}
 
-        <View style={{ marginTop: 32 }}>
+        <Text style={styles.h2}>Limitations</Text>
+        {c.limitations.map((t) => (
+          <Text key={t.slice(0, 24)} style={styles.statement}>
+            {t}
+          </Text>
+        ))}
+        {data.inspector.default_disclaimer && (
+          <Text style={styles.statement}>{data.inspector.default_disclaimer}</Text>
+        )}
+
+        {c.packs
+          .filter((p) => p.statements.length > 0 || p.listExclusions)
+          .map((p) => (
+            <View key={p.state} style={{ marginTop: 8 }}>
+              <Text style={styles.h2} minPresenceAhead={60}>
+                {p.title} required statements
+              </Text>
+              {p.statements.map((st) =>
+                st.conspicuous ? (
+                  <View key={st.text.slice(0, 24)} style={styles.conspicuous} wrap={false}>
+                    <Text style={styles.conspicuousText}>{st.text}</Text>
+                  </View>
+                ) : (
+                  <Text key={st.text.slice(0, 24)} style={styles.statement}>
+                    {st.text}
+                  </Text>
+                ),
+              )}
+              {p.listExclusions && c.exclusions && (
+                <View>
+                  <Text style={styles.h3}>Exclusions</Text>
+                  {c.exclusions.map((e) => (
+                    <Text key={e} style={styles.bullet}>
+                      • {e}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          ))}
+
+        <View style={{ marginTop: 24 }} wrap={false}>
           <Text style={styles.h2}>Inspector signature</Text>
-          <Text style={styles.body}>{data.inspector.full_name}</Text>
-          {signatureLine && (
-            <Text style={[styles.body, { color: COLOR.slate500 }]}>{signatureLine}</Text>
+          <View style={styles.sigLine} />
+          <Text style={styles.body}>
+            Electronically signed by {data.inspector.full_name} on {formatDate(data.finalized_at)}
+          </Text>
+          {license && <Text style={[styles.body, { fontWeight: 700 }]}>{license}</Text>}
+          {data.inspector.company_name && (
+            <Text style={[styles.body, { color: COLOR.slate500 }]}>{data.inspector.company_name}</Text>
           )}
-          <Text style={[styles.body, { color: COLOR.slate500, marginTop: 4 }]}>
-            Finalized {formatDate(data.finalized_at)}
+          <Text style={[styles.body, { color: COLOR.slate500, marginTop: 6, fontSize: 9 }]}>
+            Findings were drafted with AI assistance from the inspector&apos;s photos and notes. The
+            inspector reviewed, edited as needed, and approved every finding in this report.
           </Text>
         </View>
 
@@ -449,6 +628,44 @@ export function InspectionReportDoc({ data }: { data: ReportData }) {
     </Document>
   );
 }
+
+function SummaryList({
+  items,
+}: {
+  items: { key: string; label: string; title: string; where: string }[];
+}) {
+  if (items.length === 0) return <Text style={styles.body}>None.</Text>;
+  return (
+    <View>
+      {items.map((i) => (
+        <View key={i.key} style={styles.invRow} wrap={false}>
+          <Text style={[styles.invStatus, { width: 150, fontWeight: 700 }]}>{i.label}</Text>
+          <Text style={styles.invNote}>
+            {i.title} (see {i.where})
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function statusColor(s: SectionStatus | null): string {
+  if (!s) return COLOR.amber700;
+  if (s.status === "inspected") return "#047857";
+  if (s.status === "not_inspected") return COLOR.orange700;
+  return COLOR.slate500;
+}
+
+function inventoryNote(s: ReportData["sections"][number]): string {
+  const parts: string[] = [];
+  if (s.status?.description) parts.push(s.status.description);
+  if (s.status?.status === "not_inspected" && s.status.reason) parts.push(`Not inspected: ${s.status.reason}`);
+  else if (s.status?.reason) parts.push(s.status.reason);
+  const n = s.findings.length;
+  if (n) parts.push(`${n} finding${n === 1 ? "" : "s"}`);
+  return parts.join(" · ") || "—";
+}
+
 
 // Small helper components
 function SummaryRow({ label, value }: { label: string; value: string }) {

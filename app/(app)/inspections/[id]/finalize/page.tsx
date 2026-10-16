@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { FinalizePanel } from "./finalize-panel";
+import { sectionsNeedingStatus } from "@/lib/inspection/system-status";
+import { labelForSection } from "@/lib/supabase/sections";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -28,6 +30,13 @@ export default async function FinalizePage({ params }: Props) {
     .eq("inspection_id", id)
     .eq("is_approved", false);
 
+  // Systems inventory: warn (don't block) when a section has no status.
+  const { data: sectionRows } = await supabase
+    .from("inspection_sections")
+    .select("*")
+    .eq("inspection_id", id);
+  const missingStatus = sectionsNeedingStatus(sectionRows ?? []).map(labelForSection);
+
   // Pre-sign the PDF if it exists so we can offer a download
   let pdfSignedUrl: string | null = null;
   if (inspection.pdf_url) {
@@ -47,6 +56,7 @@ export default async function FinalizePage({ params }: Props) {
       pdfSignedUrl={pdfSignedUrl}
       totalFindings={totalFindings ?? 0}
       unapprovedCount={unapproved ?? 0}
+      missingStatus={missingStatus}
       defaultClientEmail={inspection.client_email}
       clientName={inspection.client_name}
     />
