@@ -8,6 +8,7 @@ import type { Finding, Photo, Severity, SectionType } from "@/lib/supabase/types
 import { EditableFindingCard } from "./finding-card";
 import { BulkApproveButton } from "./bulk-approve-button";
 import { TrecPanel } from "./trec-panel";
+import { AddFindingForm } from "./add-finding-form";
 import { isLockedStatus } from "@/lib/inspection/lock";
 import { isTexasLicense, itemsMissingStatus, resolveItems, usesTrecForm } from "@/lib/trec/form";
 import { loadFindingsForForm, loadReportForm } from "@/lib/trec/load";
@@ -326,9 +327,14 @@ export default async function ReviewPage({ params }: Props) {
                       inspectionId={id}
                       userId={user.id}
                       photoUrl={finding.photo_id ? photoUrlById.get(finding.photo_id) : null}
+                      sectionType={s.section_type as SectionType}
                     />
                   ))}
                 </div>
+              )}
+
+              {!locked && (
+                <AddFindingForm inspectionId={id} sectionType={s.section_type as SectionType} />
               )}
             </section>
           );
@@ -338,7 +344,7 @@ export default async function ReviewPage({ params }: Props) {
         <section className="space-y-3 pt-2">
           <h2 className="text-lg font-medium text-slate-900">Other systems</h2>
           <p className="text-xs text-slate-500">
-            Only appear in the report once you set a status. Mark a fireplace{" "}
+            Only appear in the report once you set a status or add a finding. Mark a fireplace{" "}
             <span className="font-medium">Not present</span> if the home has none.
           </p>
           {unusedOptional.map((d) => (
@@ -351,6 +357,7 @@ export default async function ReviewPage({ params }: Props) {
                 locked={locked}
                 optional
               />
+              {!locked && <AddFindingForm inspectionId={id} sectionType={d.type} />}
             </div>
           ))}
         </section>

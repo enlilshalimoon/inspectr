@@ -15,7 +15,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { SEVERITY_COLOR, SEVERITY_LABEL } from "@/lib/utils/severity";
 import { createClient } from "@/lib/supabase/client";
-import type { Finding, Severity } from "@/lib/supabase/types";
+import type { Finding, SectionType, Severity } from "@/lib/supabase/types";
+import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
 import {
   deleteFinding,
   setFindingApproved,
@@ -46,9 +47,11 @@ type Props = {
   userId: string;
   // Signed URL of the photo this finding was drafted from.
   photoUrl?: string | null;
+  // Section the finding is filed under; editing can move it.
+  sectionType: SectionType;
 };
 
-export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }: Props) {
+export function EditableFindingCard({ finding, inspectionId, userId, photoUrl, sectionType }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -59,6 +62,7 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }:
   const [description, setDescription] = useState(finding.description);
   const [action, setAction] = useState(finding.recommended_action ?? "");
   const [severity, setSeverity] = useState<Severity>(finding.severity);
+  const [section, setSection] = useState<SectionType>(sectionType);
 
   // Voice-regenerate state
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
@@ -72,6 +76,7 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }:
     setDescription(finding.description);
     setAction(finding.recommended_action ?? "");
     setSeverity(finding.severity);
+    setSection(sectionType);
     setError(null);
   }
 
@@ -92,6 +97,7 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }:
         description,
         recommended_action: action,
         severity,
+        section_type: section !== sectionType ? section : undefined,
       }).then((r) => {
         if (r.ok) setEditing(false);
         return r;
@@ -383,6 +389,24 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }:
           </div>
         )}
 
+        {editing && (
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="font-medium uppercase tracking-wide">Section</span>
+            <select
+              value={section}
+              onChange={(e) => setSection(e.target.value as SectionType)}
+              disabled={pending}
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-sm text-slate-800"
+            >
+              {STANDARD_SECTIONS.map((s) => (
+                <option key={s.type} value={s.type}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         {error && <div className="text-xs text-red-700">{error}</div>}
 
         {/* Voice comment / regenerate */}
@@ -454,7 +478,7 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl }:
   );
 }
 
-function SeverityPicker({
+export function SeverityPicker({
   value,
   onChange,
   disabled,
