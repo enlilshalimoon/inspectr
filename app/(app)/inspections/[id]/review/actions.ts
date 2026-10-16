@@ -6,7 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { renderInspectionPdf } from "@/lib/pdf/render";
 import { sendFounderEmail, firstInspectionFeedbackEmail } from "@/lib/email/send";
 import { withDismissed } from "@/lib/inspection/photos";
+import { finalizedStatus, isFirstFinalize, isLockedStatus, lockError, LOCKED_MESSAGE } from "@/lib/inspection/lock";
 import { loadTrecStatus } from "@/lib/trec/load";
+import { containsCostEstimate } from "@/lib/trec/form";
+import { findOrCreateSection } from "@/lib/inspection/sections-db";
 import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
 import type { SectionType } from "@/lib/supabase/types";
 import {
@@ -20,6 +23,14 @@ import {
 // Each one revalidates the review page so server-rendered state stays in sync.
 
 const SEVERITY = z.enum(["info", "monitor", "minor_repair", "major_repair", "safety_hazard"]);
+const SECTION_TYPE = z.enum(STANDARD_SECTIONS.map((s) => s.type) as [SectionType, ...SectionType[]]);
+
+const COST_ERROR =
+  "Remove the dollar amount or cost estimate. Lookover reports never include repair costs.";
+
+function hasCost(...texts: (string | null | undefined)[]): boolean {
+  return texts.some((t) => containsCostEstimate(t));
+}
 
 const updateSchema = z.object({
   finding_id: z.string().uuid(),
@@ -28,6 +39,8 @@ const updateSchema = z.object({
   description: z.string().min(1).max(4000).optional(),
   recommended_action: z.string().max(2000).optional().nullable(),
   severity: SEVERITY.optional(),
+  // Move the finding (and its photo) to another section.
+  section_type: SECTION_TYPE.optional(),
 });
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -37,9 +50,32 @@ export async function updateFinding(input: z.infer<typeof updateSchema>): Promis
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const supabase = await createClient();
+  const locked = await lockError(supabase, { findingId: parsed.data.finding_id });
+  if (locked) return { ok: false, error: locked };
+  if (hasCost(parsed.data.title, parsed.data.description, parsed.data.recommended_action)) {
+    return { ok: false, error: COST_ERROR };
+  }
   const patch: Record<string, unknown> = { inspector_edited: true };
   for (const k of ["title", "description", "recommended_action", "severity"] as const) {
     if (parsed.data[k] !== undefined) patch[k] = parsed.data[k];
+  }
+
+  let photoId: string | null = null;
+  if (parsed.data.section_type) {
+    const { data: current } = await supabase
+      .from("findings")
+      .select("inspection_id, photo_id")
+      .eq("id", parsed.data.finding_id)
+      .maybeSingle();
+    if (!current) return { ok: false, error: "Finding not found." };
+    const sectionId = await findOrCreateSection(
+      supabase,
+      current.inspection_id as string,
+      parsed.data.section_type,
+    );
+    if (!sectionId) return { ok: false, error: "Could not add section." };
+    patch.section_id = sectionId;
+    photoId = (current.photo_id as string | null) ?? null;
   }
 
   const { error } = await supabase
@@ -48,7 +84,58 @@ export async function updateFinding(input: z.infer<typeof updateSchema>): Promis
     .eq("id", parsed.data.finding_id);
 
   if (error) return { ok: false, error: error.message };
+  // Keep the photo filed with its finding (Capture and the photo strip use it).
+  if (photoId && patch.section_id) {
+    await supabase.from("photos").update({ section_id: patch.section_id }).eq("id", photoId);
+  }
   revalidatePath(`/inspections/${parsed.data.inspection_id}/review`);
+  return { ok: true };
+}
+
+const addSchema = z.object({
+  inspection_id: z.string().uuid(),
+  section_type: SECTION_TYPE,
+  title: z.string().trim().min(1, "Give the finding a title.").max(300),
+  description: z.string().trim().min(1, "Describe what you found.").max(4000),
+  recommended_action: z.string().max(2000).optional().nullable(),
+  severity: SEVERITY,
+});
+
+// A finding the inspector writes themselves, with no photo ("no smoke alarm in
+// bedroom 2", "attic not accessible"). They wrote every word, so it starts
+// approved.
+export async function addManualFinding(input: z.infer<typeof addSchema>): Promise<ActionResult> {
+  const parsed = addSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const d = parsed.data;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+  const locked = await lockError(supabase, { inspectionId: d.inspection_id });
+  if (locked) return { ok: false, error: locked };
+  if (hasCost(d.title, d.description, d.recommended_action)) return { ok: false, error: COST_ERROR };
+
+  const sectionId = await findOrCreateSection(supabase, d.inspection_id, d.section_type);
+  if (!sectionId) return { ok: false, error: "Could not add section." };
+
+  const { error } = await supabase.from("findings").insert({
+    inspection_id: d.inspection_id,
+    section_id: sectionId,
+    photo_id: null,
+    severity: d.severity,
+    title: d.title,
+    description: d.description,
+    recommended_action: d.recommended_action?.trim() || null,
+    is_approved: true,
+    inspector_edited: true,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/inspections/${d.inspection_id}/review`);
+  revalidatePath(`/inspections/${d.inspection_id}/finalize`);
   return { ok: true };
 }
 
@@ -63,6 +150,8 @@ export async function setFindingApproved(input: z.infer<typeof approveSchema>): 
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const supabase = await createClient();
+  const locked = await lockError(supabase, { findingId: parsed.data.finding_id });
+  if (locked) return { ok: false, error: locked };
   const { error } = await supabase
     .from("findings")
     .update({ is_approved: parsed.data.approved })
@@ -85,6 +174,8 @@ export async function approveAllInSection(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const supabase = await createClient();
+  const locked = await lockError(supabase, { inspectionId: parsed.data.inspection_id });
+  if (locked) return { ok: false, error: locked };
   let q = supabase
     .from("findings")
     .update({ is_approved: true })
@@ -100,7 +191,7 @@ export async function approveAllInSection(
 const sectionStatusSchema = z
   .object({
     inspection_id: z.string().uuid(),
-    section_type: z.enum(STANDARD_SECTIONS.map((s) => s.type) as [SectionType, ...SectionType[]]),
+    section_type: SECTION_TYPE,
     status: z.enum(SYSTEM_STATUSES),
     reason: z.string().max(500).optional().nullable(),
     description: z.string().max(1000).optional().nullable(),
@@ -126,27 +217,10 @@ export async function setSectionStatus(
     .eq("id", inspection_id)
     .maybeSingle();
   if (!insp) return { ok: false, error: "Inspection not found." };
-  if (insp.status === "finalized" || insp.status === "delivered") {
-    return { ok: false, error: "This report is finalized and locked." };
-  }
+  if (isLockedStatus(insp.status)) return { ok: false, error: LOCKED_MESSAGE };
 
-  const { data: existing } = await supabase
-    .from("inspection_sections")
-    .select("id")
-    .eq("inspection_id", inspection_id)
-    .eq("section_type", section_type)
-    .maybeSingle();
-  let sectionId = existing?.id as string | undefined;
-  if (!sectionId) {
-    const order = STANDARD_SECTIONS.find((s) => s.type === section_type)?.order ?? 999;
-    const { data: created, error } = await supabase
-      .from("inspection_sections")
-      .insert({ inspection_id, section_type, section_order: order })
-      .select("id")
-      .single();
-    if (error || !created) return { ok: false, error: error?.message ?? "Could not add section." };
-    sectionId = created.id as string;
-  }
+  const sectionId = await findOrCreateSection(supabase, inspection_id, section_type);
+  if (!sectionId) return { ok: false, error: "Could not add section." };
 
   const value: SectionStatus = {
     status: parsed.data.status,
@@ -332,10 +406,11 @@ export async function finalizeInspection(
   // Verify we own this inspection + check unapproved count
   const { data: insp, error: inspErr } = await supabase
     .from("inspections")
-    .select("id, share_url_slug, status")
+    .select("id, share_url_slug, status, finalized_at, delivered_at")
     .eq("id", inspectionId)
     .maybeSingle();
   if (inspErr || !insp) return { ok: false, error: "Inspection not found." };
+  if (isLockedStatus(insp.status)) return { ok: false, error: "This report is already finalized." };
 
   const { count: unapproved, error: countErr } = await supabase
     .from("findings")
@@ -359,21 +434,15 @@ export async function finalizeInspection(
     };
   }
 
-  // Mark finalized FIRST so the PDF picks up the timestamp
+  // Render and save the PDF before marking the report finalized, so a failure
+  // leaves it editable and Finalize can simply be pressed again.
   const finalizedAt = new Date().toISOString();
-  const { error: updErr } = await supabase
-    .from("inspections")
-    .update({ status: "finalized", finalized_at: finalizedAt })
-    .eq("id", inspectionId);
-  if (updErr) return { ok: false, error: updErr.message };
-
-  // Render PDF
   let pdfBuf: Buffer;
   try {
-    pdfBuf = await renderInspectionPdf(inspectionId, "session");
+    pdfBuf = await renderInspectionPdf(inspectionId, "session", finalizedAt);
   } catch (err) {
     console.error("[finalize] pdf render failed:", err);
-    return { ok: false, error: "PDF rendering failed." };
+    return { ok: false, error: "PDF rendering failed. Nothing was finalized; try again." };
   }
 
   // Upload to private report-assets bucket. Path is scoped per RLS policy.
@@ -385,9 +454,19 @@ export async function finalizeInspection(
       cacheControl: "3600",
       upsert: true,
     });
-  if (upErr) return { ok: false, error: `Upload failed: ${upErr.message}` };
+  if (upErr) {
+    return { ok: false, error: `PDF upload failed (${upErr.message}). Nothing was finalized; try again.` };
+  }
 
-  await supabase.from("inspections").update({ pdf_url: pdfPath }).eq("id", inspectionId);
+  const { error: updErr } = await supabase
+    .from("inspections")
+    .update({
+      status: finalizedStatus(insp.delivered_at as string | null),
+      finalized_at: finalizedAt,
+      pdf_url: pdfPath,
+    })
+    .eq("id", inspectionId);
+  if (updErr) return { ok: false, error: updErr.message };
 
   // First-finalized-report feedback. If this is the inspector's first ever finalized
   // inspection, send a personal founder-voice feedback ask. Best-effort and fully
@@ -398,7 +477,7 @@ export async function finalizeInspection(
       .select("id", { count: "exact", head: true })
       .eq("inspector_id", user.id)
       .not("finalized_at", "is", null);
-    if ((finalizedCount ?? 0) === 1) {
+    if (isFirstFinalize(insp.finalized_at as string | null, finalizedCount ?? 0)) {
       const [{ data: profile }, { data: inspRow }] = await Promise.all([
         supabase.from("users").select("full_name").eq("id", user.id).maybeSingle(),
         supabase
@@ -432,6 +511,47 @@ export async function finalizeInspection(
   return { ok: true, share_slug: insp.share_url_slug as string, pdf_path: pdfPath };
 }
 
+// Unlocks a finalized report for edits. The client link stops showing it until
+// the inspector finalizes again, which renders a fresh PDF, so the link and the
+// PDF never disagree.
+export async function reopenInspection(
+  input: z.infer<typeof finalizeSchema>,
+): Promise<ActionResult> {
+  const parsed = finalizeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const inspectionId = parsed.data.inspection_id;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const { data: insp } = await supabase
+    .from("inspections")
+    .select("id, status")
+    .eq("id", inspectionId)
+    .maybeSingle();
+  if (!insp) return { ok: false, error: "Inspection not found." };
+  if (!isLockedStatus(insp.status)) return { ok: true };
+
+  const { error } = await supabase
+    .from("inspections")
+    .update({ status: "review" })
+    .eq("id", inspectionId);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.from("inspection_activity").insert({
+    inspection_id: inspectionId,
+    user_id: user.id,
+    action_type: "report_reopened",
+    metadata: { from_status: insp.status },
+  });
+
+  revalidatePath(`/inspections/${inspectionId}`, "layout");
+  return { ok: true };
+}
+
 const deleteSchema = z.object({
   finding_id: z.string().uuid(),
   inspection_id: z.string().uuid(),
@@ -442,6 +562,8 @@ export async function deleteFinding(input: z.infer<typeof deleteSchema>): Promis
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const supabase = await createClient();
+  const locked = await lockError(supabase, { findingId: parsed.data.finding_id });
+  if (locked) return { ok: false, error: locked };
   const { data: finding } = await supabase
     .from("findings")
     .select("photo_id")

@@ -20,13 +20,14 @@
 // touches another inspector's photos.
 
 import { NextResponse, type NextRequest } from "next/server";
+import { lockError } from "@/lib/inspection/lock";
+import { findOrCreateSection } from "@/lib/inspection/sections-db";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { analyzePhoto, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
 import {
   isFindingDismissed,
   resolveSectionType,
-  sectionOrder,
   withDismissed,
 } from "@/lib/inspection/photos";
 import type {
@@ -70,6 +71,13 @@ export async function POST(req: NextRequest) {
     Photo,
     "id" | "inspection_id" | "section_id" | "storage_path" | "ai_analysis"
   >;
+
+  // A finalized report is locked: no new or re-drafted findings until the
+  // inspector re-opens it.
+  const locked = await lockError(supabase, { inspectionId: photo.inspection_id });
+  if (locked) {
+    return NextResponse.json({ error: "report locked", message: locked }, { status: 409 });
+  }
 
   // ---------------------------------------------------------------------
   // Stage 1: vision analysis (or reuse if already cached on the row)
@@ -295,33 +303,6 @@ export async function POST(req: NextRequest) {
     section_id: sectionId,
     reused: false,
   });
-}
-
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
-
-async function findOrCreateSection(
-  supabase: ServerClient,
-  inspectionId: string,
-  type: SectionType,
-): Promise<string | null> {
-  const find = () =>
-    supabase
-      .from("inspection_sections")
-      .select("id")
-      .eq("inspection_id", inspectionId)
-      .eq("section_type", type)
-      .maybeSingle();
-  const { data: found } = await find();
-  if (found) return found.id as string;
-  const { data: created } = await supabase
-    .from("inspection_sections")
-    .insert({ inspection_id: inspectionId, section_type: type, section_order: sectionOrder(type) })
-    .select("id")
-    .single();
-  if (created) return created.id as string;
-  // Lost a race with a parallel photo creating the same section.
-  const { data: again } = await find();
-  return (again?.id as string | undefined) ?? null;
 }
 
 function msg(err: unknown): string {

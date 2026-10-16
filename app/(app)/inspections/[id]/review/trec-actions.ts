@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { lockError } from "@/lib/inspection/lock";
 import { canRemoveItem, containsCostEstimate, hasAnyBox, type ItemEntry } from "@/lib/trec/form";
 import { REI76_ITEM_IDS, trecItem } from "@/lib/trec/rei76";
 import type { ActionResult } from "./actions";
@@ -20,6 +21,8 @@ async function patch(inspectionId: string, path: string[], value: unknown): Prom
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in." };
+  const locked = await lockError(supabase, { inspectionId });
+  if (locked) return { ok: false, error: locked };
 
   const { error } = await supabase.rpc("patch_report_form", {
     p_inspection_id: inspectionId,

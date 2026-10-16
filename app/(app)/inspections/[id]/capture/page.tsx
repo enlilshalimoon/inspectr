@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { isLockedStatus } from "@/lib/inspection/lock";
 import { createClient } from "@/lib/supabase/server";
 import { labelForSection } from "@/lib/supabase/sections";
 import type { SectionType } from "@/lib/supabase/types";
@@ -21,7 +24,7 @@ export default async function CapturePage({ params }: Props) {
   // signed-in inspector — so run them together rather than paying three
   // sequential round-trips on the first screen of a new inspection.
   const [{ data: inspection }, { data: sectionRows }, { data: photoRows }] = await Promise.all([
-    supabase.from("inspections").select("id").eq("id", id).maybeSingle(),
+    supabase.from("inspections").select("id, status").eq("id", id).maybeSingle(),
     supabase
       .from("inspection_sections")
       .select("id, section_type, section_order")
@@ -37,6 +40,29 @@ export default async function CapturePage({ params }: Props) {
       .limit(100),
   ]);
   if (!inspection) notFound();
+
+  // Photos are uploaded straight from the browser, so the locked notice here
+  // is what stops a finalized report from gaining photos (drafting is also
+  // refused by the AI route).
+  if (isLockedStatus(inspection.status as string)) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center space-y-3">
+          <p className="text-sm text-slate-700">
+            <span className="font-medium">This report is finalized and locked.</span> To add
+            photos, re-open it on the Finalize tab. You&apos;ll finalize again afterwards, which
+            makes a new PDF.
+          </p>
+          <Link
+            href={`/inspections/${id}/finalize`}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-slate-900 text-white hover:bg-slate-800"
+          >
+            Go to Finalize →
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const sections: SectionOption[] = (sectionRows ?? []).map((s) => ({
     id: s.id as string,
