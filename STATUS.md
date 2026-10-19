@@ -1,7 +1,7 @@
 # Lookover — current status & handoff
 
 Living doc. Any session (cloud or local) should read this after AGENTS.md and update it before ending.
-Last updated: 2026-10-16.
+Last updated: 2026-10-18.
 
 ## Where things stand
 
@@ -14,6 +14,8 @@ Last updated: 2026-10-16.
 - **Founder follow-up email:** /admin → "Founder follow-up" → Send. Finalized-a-report users get comped for life + feedback ask; everyone else gets "what did you think?". Deduped via `app_metadata.followup_sent_at`.
 
 - **Automatic signup nudges (merged 2026-10-15, PR #1, live):** the daily cron (`/api/cron/founder-checkin`, 16:00 UTC) now emails inspectors who stall 24h at a step: onboarded/no inspection → no photos → nothing approved → not delivered. Each stage once per user (`app_metadata.nudges_sent`), max one founder email per 48h (counts the check-in, /admin follow-up, and first-report feedback email), signups from the last 14 days only, internal accounts skipped. The old 2-5 day check-in still runs for people with no inspection. Rules in `lib/email/nudges.ts` (`npm test`); copy in `founderNudgeEmail` (`lib/email/send.ts`). Dry run: `curl -H "Authorization: Bearer $CRON_SECRET" "https://uselookover.com/api/cron/founder-checkin?dry=1"` lists who would get what without sending.
+
+- **Signup role question (PR `signup-role`, not merged yet, 2026-10-18):** signup now asks "What best describes you?" (Licensed home inspector / Inspector in training / Real estate agent / Homeowner or buyer / Other), saved to `user_metadata.role` (`lib/signup-role.ts`). Only the two inspector roles fire the Meta pixel `CompleteRegistration` (what `AS_JUL2_CompleteReg_TX_API` optimizes for); the rest fire custom `NonInspectorSignup` and see a "Lookover is built for home inspectors" note with "Continue anyway". Non-inspectors get no automatic nudges or check-in. /admin has a Role column and an "Inspectors" card. Accounts before 2026-10-18 have no role ("—") and behave as before. There is no server-side Conversions API; the pixel is browser-only. No migration. After merge: do one test signup as a homeowner on a phone and check Events Manager shows `NonInspectorSignup`, not `CompleteRegistration`.
 
 - **Texas TREC REI 7-6 report (merged and live, PR #4; migration 0005 applied 2026-10-16):** TX-licensed inspectors get TREC's promulgated form as their PDF. A "Texas TREC form" panel on the Review tab sets I / NI / NP / D per item; items with an approved finding are pre-checked I + D. Finalize is blocked until every item has a box. Details and fidelity gaps are in `docs/trec-rei-7-6.md`.
 

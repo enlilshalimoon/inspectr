@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
+import { SIGNUP_ROLES, type SignupRole } from "@/lib/signup-role";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendSystemEmail, welcomeEmail, passwordResetEmail } from "@/lib/email/send";
@@ -16,6 +17,7 @@ export type AuthState = {
   ok?: boolean;
   message?: string;
   next?: string; // client navigates here on success (lets the client fire pixel events first)
+  role?: SignupRole; // signup only: picks the pixel event and the non-inspector note
 } | null;
 
 // ---------------------------------------------------------------------------
@@ -25,6 +27,7 @@ const signupSchema = z.object({
   email: z.string().email("Enter a valid email."),
   password: z.string().min(8, "At least 8 characters."),
   fullName: z.string().min(1, "Required.").max(120),
+  role: z.enum(SIGNUP_ROLES, { error: "Tell us what best describes you." }),
 });
 
 const loginSchema = z.object({
@@ -54,6 +57,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     email: formData.get("email"),
     password: formData.get("password"),
     fullName: formData.get("fullName"),
+    role: formData.get("role"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -70,6 +74,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     options: {
       data: {
         full_name: parsed.data.fullName,
+        role: parsed.data.role, // lib/signup-role.ts
         ...(signupSource ? { signup_source: signupSource } : {}),
       },
       emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
@@ -83,6 +88,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     return {
       ok: true,
       message: "Check your email to confirm your account, then sign in.",
+      role: parsed.data.role,
     };
   }
 
@@ -112,8 +118,9 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   });
 
   // Return success (instead of a server redirect) so the client can fire the
-  // CompleteRegistration pixel event before navigating to onboarding.
-  return { ok: true, next: "/onboarding" };
+  // registration pixel event (CompleteRegistration for inspectors only) before
+  // navigating to onboarding.
+  return { ok: true, next: "/onboarding", role: parsed.data.role };
 }
 
 // ---------------------------------------------------------------------------

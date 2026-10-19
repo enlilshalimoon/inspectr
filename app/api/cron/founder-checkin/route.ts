@@ -23,6 +23,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { founderCheckinEmail, founderNudgeEmail, sendFounderEmail } from "@/lib/email/send";
 import { isInternalEmail } from "@/lib/email/internal";
+import { roleFromMetadata, type SignupRole } from "@/lib/signup-role";
 import { listAllAuthUsers } from "@/lib/admin/followup";
 import {
   CHECKIN_MAX_MS,
@@ -67,10 +68,12 @@ export async function GET(req: NextRequest) {
   // Batch-load progress + auth metadata. If metadata can't be read, bail rather than
   // risk duplicate sends.
   let metaById: Map<string, Record<string, unknown>>;
+  let roleById: Map<string, SignupRole | null>;
   let progressByUser: Map<string, InspectionProgress[]>;
   try {
     const authUsers = await listAllAuthUsers(sb);
     metaById = new Map(authUsers.map((a) => [a.id, a.app_metadata ?? {}]));
+    roleById = new Map(authUsers.map((a) => [a.id, roleFromMetadata(a.user_metadata)]));
     progressByUser = await loadProgress(sb, ids);
   } catch (err) {
     console.error("[cron founder-checkin] load failed:", err);
@@ -100,6 +103,7 @@ export async function GET(req: NextRequest) {
         onboardedAt: u.onboarding_completed_at,
         inspections: progressByUser.get(u.id) ?? [],
         appMetadata: appMeta,
+        role: roleById.get(u.id) ?? null,
       },
       now,
     );

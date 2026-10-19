@@ -31,6 +31,7 @@ declare global {
  * Safe to call from anywhere. Pass standard event names ("Lead",
  * "CompleteRegistration", "Subscribe", "Purchase", "ViewContent") to get
  * Meta-recognized conversions; custom names work but get less algorithmic lift.
+ * Pass method "trackCustom" for a custom event name (e.g. NonInspectorSignup).
  *
  * Generates an `eventID` so that when we add CAPI later, the same event sent
  * from the server can be deduplicated against the client-side fire.
@@ -45,12 +46,13 @@ declare global {
 export function trackEvent(
   eventName: string,
   params?: Record<string, unknown>,
+  method: "track" | "trackCustom" = "track",
 ): void {
   if (typeof window === "undefined") return;
   const eventId = `${eventName}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const fire = (): boolean => {
     if (!window.fbq) return false;
-    window.fbq("track", eventName, params ?? {}, { eventID: eventId });
+    window.fbq(method, eventName, params ?? {}, { eventID: eventId });
     return true;
   };
   if (fire()) return;
