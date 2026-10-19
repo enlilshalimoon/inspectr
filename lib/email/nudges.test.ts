@@ -162,3 +162,26 @@ test("nudge copy follows the email rules", async () => {
     }
   }
 });
+
+// --- signup role (user_metadata.role) ---
+
+test("non-inspector roles get no stage nudge", () => {
+  for (const role of ["real_estate_agent", "homeowner_or_buyer", "other"] as const) {
+    assert.deepEqual(decide(state({ role })), { action: "skip", reason: "non-inspector" });
+  }
+});
+
+test("non-inspector roles get no 2-5 day check-in either", () => {
+  const d = decide(state({ role: "homeowner_or_buyer", signupAt: hoursAgo(72), onboardedAt: null }));
+  assert.deepEqual(d, { action: "skip", reason: "non-inspector" });
+});
+
+test("inspector roles are nudged as before", () => {
+  for (const role of ["licensed_inspector", "inspector_in_training"] as const) {
+    assert.deepEqual(decide(state({ role })), { action: "nudge", stage: "no_inspection", inspection: null });
+  }
+});
+
+test("pre-role signups (no role) keep the old behavior", () => {
+  assert.deepEqual(decide(state({ role: null })), { action: "nudge", stage: "no_inspection", inspection: null });
+});

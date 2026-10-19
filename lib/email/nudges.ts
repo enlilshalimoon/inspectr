@@ -11,8 +11,13 @@
 //   not_delivered  — findings approved, report not sent to the client
 // Each stage is sent at most once per user (app_metadata.nudges_sent[stage]), and no
 // founder email of any kind goes out within 48h of the previous one.
+//
+// Signups who said they're not an inspector (user_metadata.role, lib/signup-role.ts)
+// get none of these automatic emails, nudge or check-in. Accounts from before the
+// role question (role null) are unaffected.
 
 import type { CheckinVariant } from "@/lib/email/send";
+import { isKnownNonInspector, type SignupRole } from "@/lib/signup-role";
 
 export const NUDGE_STAGES = [
   "no_inspection",
@@ -48,6 +53,7 @@ export type InspectorState = {
   onboardedAt: string | null;
   inspections: InspectionProgress[];
   appMetadata: Record<string, unknown>;
+  role?: SignupRole | null; // null/absent = signed up before the role question
 };
 
 export type FounderEmailDecision =
@@ -104,6 +110,8 @@ export function currentStage(
 }
 
 export function decideFounderEmail(s: InspectorState, now: number): FounderEmailDecision {
+  if (isKnownNonInspector(s.role ?? null)) return { action: "skip", reason: "non-inspector" };
+
   const age = now - ms(s.signupAt);
   const sent = nudgesSent(s.appMetadata);
   const recent = now - lastFounderEmailAt(s) < MIN_GAP_MS;

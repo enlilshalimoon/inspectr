@@ -10,6 +10,13 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth/is-admin";
 import { getFollowupRecipients, listAllAuthUsers } from "@/lib/admin/followup";
 import { describeSource, type SignupSource } from "@/lib/attribution";
+import {
+  SIGNUP_ROLE_LABELS,
+  isInspectorRole,
+  roleFromMetadata,
+  type SignupRole,
+} from "@/lib/signup-role";
+import { isInternalEmail } from "@/lib/email/internal";
 import { FOUNDER_REPLY_TO } from "@/lib/email/send";
 import { FollowupButton } from "./followup-button";
 
@@ -97,6 +104,16 @@ export default async function AdminPage() {
     ]),
   );
 
+  // Self-identified role from signup (lib/signup-role.ts). Pre-2026-10-18 accounts
+  // have none and show "—". Internal accounts are left out of the counts.
+  const roleByUser = new Map(authUsers.map((u) => [u.id, roleFromMetadata(u.user_metadata)]));
+  const realRoles = authUsers
+    .filter((u) => u.email && !isInternalEmail(u.email))
+    .map((u) => roleByUser.get(u.id) ?? null);
+  const inspectorCount = realRoles.filter((r) => r && isInspectorRole(r)).length;
+  const nonInspectorCount = realRoles.filter((r) => r && !isInspectorRole(r)).length;
+  const noRoleCount = realRoles.filter((r) => !r).length;
+
   // One round-trip for per-user inspection counts (so the table shows engagement)
   const userIds = signups.map((s) => s.id);
   const countsByUser: Record<string, number> = {};
@@ -176,6 +193,12 @@ export default async function AdminPage() {
           <MetricCard label="On trial" value={trialActive.count ?? 0} accent="blue" />
           <MetricCard label="Paying" value={payingActive.count ?? 0} accent="green" />
           <MetricCard label="Comped (design partners)" value={compedActive.count ?? 0} />
+          <MetricCard
+            label="Inspectors"
+            value={inspectorCount}
+            sub={`${nonInspectorCount} non-inspector · ${noRoleCount} no role (pre-Oct 18)`}
+            accent="green"
+          />
           <MetricCard label="Onboarded" value={onboardedTotal.count ?? 0} />
           <MetricCard
             label="Reports finalized"
@@ -196,6 +219,7 @@ export default async function AdminPage() {
               <tr>
                 <Th>Name</Th>
                 <Th>Email</Th>
+                <Th>Role</Th>
                 <Th>Company</Th>
                 <Th>State</Th>
                 <Th>Status</Th>
@@ -209,7 +233,7 @@ export default async function AdminPage() {
             <tbody>
               {signups.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={11} className="px-4 py-10 text-center text-slate-500">
                     No signups yet. They&apos;ll appear here in real time.
                   </td>
                 </tr>
@@ -219,6 +243,9 @@ export default async function AdminPage() {
                     <Td>{s.full_name ?? <Muted>—</Muted>}</Td>
                     <Td>
                       <span className="font-mono text-xs">{s.email}</span>
+                    </Td>
+                    <Td>
+                      <RoleCell role={roleByUser.get(s.id) ?? null} />
                     </Td>
                     <Td>{s.company_name ?? <Muted>—</Muted>}</Td>
                     <Td>{s.license_state ?? <Muted>—</Muted>}</Td>
@@ -460,4 +487,13 @@ function formatTrialEnds(iso: string | null): React.ReactNode {
   if (days === 0) return <span className="text-amber-700">today</span>;
   if (days <= 2) return <span className="text-amber-700">{days}d</span>;
   return <span className="text-slate-600">{days}d</span>;
+}
+
+function RoleCell({ role }: { role: SignupRole | null }) {
+  if (!role) return <Muted>—</Muted>;
+  return (
+    <span className={isInspectorRole(role) ? "text-slate-900" : "text-amber-700"}>
+      {SIGNUP_ROLE_LABELS[role]}
+    </span>
+  );
 }
