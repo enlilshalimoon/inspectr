@@ -19,6 +19,14 @@ Last updated: 2026-10-18.
 
 - **Texas TREC REI 7-6 report (merged and live, PR #4; migration 0005 applied 2026-10-16):** TX-licensed inspectors get TREC's promulgated form as their PDF. A "Texas TREC form" panel on the Review tab sets I / NI / NP / D per item; items with an approved finding are pre-checked I + D. Finalize is blocked until every item has a box. Details and fidelity gaps are in `docs/trec-rei-7-6.md`.
 
+- **Texas cold email outreach (started 2026-10-21, founder approved):**
+  - Copy and rules are in `marketing/outreach/cold-email-texas.md`: 3 plain-text emails sent on day 0, day 3 and day 8, signed Enlil, from hello@.
+  - Leads come from inspectors' own websites and are checked against TREC's public inspector dataset (data.texas.gov `pkr9-9isv`). The lead files `leads-*.csv` and the logs `outreach-log.json` / `outreach-config.json` are gitignored.
+  - The local scheduled task "Lookover Texas cold outreach" sends 20 new emails each weekday at 9am, plus follow-ups. Set `"paused": true` in `outreach-config.json` to stop it.
+  - The footer address is the Spyre Studio LLC virtual mailbox from LegalZoom/Earth Class Mail, as CAN-SPAM requires.
+  - The signup monitor handles replies: it records opt-outs and auto-answers interested inspectors.
+  - Deliverability: SPF, DMARC (p=none) and Google DKIM (selector `google`, added at Namecheap and turned on 2026-10-21) are all set for uselookover.com.
+
 ## Open — needs the founder
 
 0a. **State report rules (2026-10-15):** `docs/state-report-rules-2026-10-15.md`. Texas is the only state with a mandated verbatim form (TREC REI 7-6), so Lookover's PDF can't be a Texas inspector's deliverable until we build an REI 7-6 output. The other states allow a custom format, but most require a full systems inventory (inspected / not inspected / why), not findings only, plus license, signature, SOP and limitations statements. Suggested next ad states: FL, CA, NC, GA, AZ, OH, PA, VA. Inspector counts are unconfirmed.

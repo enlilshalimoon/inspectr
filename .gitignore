@@ -42,3 +42,7 @@ next-env.d.ts
 
 # benchmark run output — regenerable, often large
 /db/benchmark/results/
+
+# outreach lead lists (contact data, keep out of git)
+/marketing/outreach/*.csv
+/marketing/outreach/*.json
