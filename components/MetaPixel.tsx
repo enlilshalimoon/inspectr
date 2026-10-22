@@ -93,6 +93,16 @@ export function MetaPixel({ pixelId }: { pixelId: string }) {
     }
   }, [pathname, tracked]);
 
+  // Cold email links (/tx, /fl, /go) redirect here with utm_medium=cold. Fire a custom
+  // event once per landing so Events Manager counts email clicks and Meta can build a
+  // retargeting audience from them.
+  useEffect(() => {
+    if (!tracked || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("utm_medium") !== "cold") return;
+    trackEvent("ColdEmailClick", { campaign: params.get("utm_campaign") ?? "" }, "trackCustom");
+  }, [tracked]);
+
   // Conditional render: on excluded routes we render nothing at all — the Meta script
   // never loads, never makes a request to facebook.net. This is stricter than "load
   // but don't track" because just loading fbevents.js leaks IP + UA + referrer to Meta.
