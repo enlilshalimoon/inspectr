@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
         destination: "/?utm_source=email&utm_medium=cold&utm_campaign=fl_oct26",
         permanent: false,
       },
+      {
+        source: "/go",
+        destination: "/?utm_source=email&utm_medium=cold&utm_campaign=states_oct26",
+        permanent: false,
+      },
     ];
   },
 };
