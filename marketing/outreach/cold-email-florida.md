@@ -20,8 +20,8 @@ defect, and the finding is written for you in SOP language before you leave the
 property. Every system gets its inspected / not inspected / not present line, and
 you approve every word before anything goes to the client.
 
-Inspectors trying it are getting reports out the same afternoon instead of that
-night.
+The whole point is getting the report out the same afternoon instead of
+writing it that night.
 
 Would you try it on one inspection this week? Free, no card, and I'll set it up
 with you on a 10 minute call if that helps.

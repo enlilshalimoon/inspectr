@@ -8,6 +8,14 @@ built from inspectors' own websites and checked against TREC's public license li
 - Under 110 words. One question at the end. Reads like Enlil typed it.
 - Personal line uses a TRUE detail from their site (`personal_detail`). If it's
   weak, drop the line rather than fake it.
+- Never claim results, customers or numbers Lookover doesn't have (no
+  "inspectors are getting…", no user counts). Claims must be about what the app
+  does.
+- personal_line: one sentence, about them, and ideally tied to report writing or
+  how busy they are. Vary the opener ("Saw…", "Noticed…", "Looks like…", "Your
+  site mentions…"). Write numbers with commas (15,750). Skip praise of slogans or
+  review counts. If they already advertise same-day reports, don't pitch
+  "same afternoon"; say it cuts the writing time instead.
 - No prices, no "AI" in the subject, no "free for life", no attachments.
 - First email has one link at most (the homepage). Follow-ups have none.
 - Footer: postal address + "reply 'no thanks' and I won't email again" (CAN-SPAM).
@@ -30,8 +38,8 @@ defect, and the finding is written for you in SOP language before you leave the
 driveway. For Texas it fills out the TREC REI 7-6 form, I/NI/NP/D boxes and all.
 You approve every line before anything goes to the client.
 
-Inspectors trying it are getting reports out the same afternoon instead of that
-night.
+The whole point is getting the report out the same afternoon instead of
+writing it that night.
 
 Would you try it on one inspection this week? Free, no card, and I'll set it up
 with you on a 10 minute call if that helps.

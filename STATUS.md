@@ -19,13 +19,23 @@ Last updated: 2026-10-18.
 
 - **Texas TREC REI 7-6 report (merged and live, PR #4; migration 0005 applied 2026-10-16):** TX-licensed inspectors get TREC's promulgated form as their PDF. A "Texas TREC form" panel on the Review tab sets I / NI / NP / D per item; items with an approved finding are pre-checked I + D. Finalize is blocked until every item has a box. Details and fidelity gaps are in `docs/trec-rei-7-6.md`.
 
-- **Texas cold email outreach (started 2026-10-21, founder approved):**
-  - Copy and rules are in `marketing/outreach/cold-email-texas.md`: 3 plain-text emails sent on day 0, day 3 and day 8, signed Enlil, from hello@.
-  - Leads come from inspectors' own websites and are checked against TREC's public inspector dataset (data.texas.gov `pkr9-9isv`). The lead files `leads-*.csv` and the logs `outreach-log.json` / `outreach-config.json` are gitignored.
-  - The local scheduled task "Lookover Texas cold outreach" sends 20 new emails each weekday at 9am, plus follow-ups. Set `"paused": true` in `outreach-config.json` to stop it.
-  - The footer address is the Spyre Studio LLC virtual mailbox from LegalZoom/Earth Class Mail, as CAN-SPAM requires.
-  - The signup monitor handles replies: it records opt-outs and auto-answers interested inspectors.
-  - Deliverability: SPF, DMARC (p=none) and Google DKIM (selector `google`, added at Namecheap and turned on 2026-10-21) are all set for uselookover.com.
+- **Cold email outreach (started 2026-10-21, founder approved; self-running):**
+  - **Copy:** `marketing/outreach/cold-email-texas.md`, which holds the rules all versions follow, plus `cold-email-florida.md` and `cold-email-general.md` for other states.
+    - 3 plain-text emails per lead, on day 0, day 3 and day 8, signed Enlil, from hello@.
+    - 2 subject lines are A/B tested.
+    - Each version links to a short URL (`/tx`, `/fl`, `/go`). These are 307 redirects defined in `next.config.ts` that add UTM tags, so signups show up in /admin's Source column.
+  - **Leads:** files are `marketing/outreach/leads-*.csv`, gitignored.
+    - Sources are public emails on inspectors' own sites. Texas leads are checked against TREC's dataset (data.texas.gov `pkr9-9isv`).
+    - As of 2026-10-21: 450 leads, 318 in TX and 132 in FL.
+  - **Local scheduled tasks** (state files are gitignored JSON in the same folder):
+    - **Lookover lead gen:** nightly at 1:30am. Tops the pool back up to 300+ unsent leads, rotating states (TX, FL, GA, NC, AZ, OH, PA, VA, …). No browser needed.
+    - **Lookover Texas cold outreach:** weekdays at 9:12am. Sends new emails plus follow-ups. The daily cap ramps 20 → 30 (Oct 28) → 40 (Nov 4) via `outreach-config.json` "ramp". Set `"paused": true` there to stop.
+    - **Lookover signup monitor:** every 2h. Answers replies: opt-outs are recorded, interested leads get the signup link and a call offer. Its midday run is also a watchdog: it alerts if outreach didn't send or lead gen stalled, and auto-pauses at a 5%+ bounce rate.
+    - **Lookover outreach weekly report:** Fridays at 3:20pm. Writes `marketing/outreach/weekly/<date>.md` and swaps a losing subject line once there's enough data.
+  - **Shared Chrome:** all browser tasks use the main Mac Chrome (deviceId f51051ef…) so they don't switch each other's browser. Schedules are staggered.
+  - **Footer address:** the Spyre Studio LLC virtual mailbox (LegalZoom/Earth Class Mail), as CAN-SPAM requires.
+  - **Deliverability:** SPF, DMARC (p=none) and Google DKIM (selector `google`, added at Namecheap and turned on 2026-10-21) are all set.
+  - **Copy rule:** never claim results or customers Lookover doesn't have.
 
 ## Open — needs the founder
 
