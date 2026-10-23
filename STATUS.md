@@ -36,6 +36,8 @@ Last updated: 2026-10-18.
   - **Footer address:** the Spyre Studio LLC virtual mailbox (LegalZoom/Earth Class Mail), as CAN-SPAM requires.
   - **Deliverability:** SPF, DMARC (p=none) and Google DKIM (selector `google`, added at Namecheap and turned on 2026-10-21) are all set.
   - **Copy rule:** never claim results or customers Lookover doesn't have.
+  - **Click tracking (2026-10-22):** landing with `utm_medium=cold` fires the custom pixel event `ColdEmailClick` (`components/MetaPixel.tsx`). The Meta website audience "Cold email clickers (180d)" (id 120251314179470761) collects those visitors for retargeting. No retargeting ad yet: the Friday report flags when the audience passes ~300.
+  - **Chrome:** device IDs change on every restart, so tasks pick the macOS Chrome where hello@ is signed in. As of 2026-10-23 that profile is also signed in to /admin and Facebook.
 
 ## Open — needs the founder
 
