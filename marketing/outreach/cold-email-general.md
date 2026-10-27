@@ -21,11 +21,11 @@ defect, and the finding is written for you in SOP language before you leave the
 property. Every system gets its inspected / not inspected / not present line, and
 you approve every word before anything goes to the client.
 
-The whole point is getting the report out the same afternoon instead of
-writing it that night.
+Easiest way to judge it: reply with 10 to 15 photos from any recent
+inspection and I'll send back the finished report so you
+can see it on a house you know. No signup.
 
-Would you try it on one inspection this week? Free, no card, and I'll set it up
-with you on a 10 minute call if that helps.
+Want to send me a few?
 
 Enlil
 Lookover · uselookover.com/go

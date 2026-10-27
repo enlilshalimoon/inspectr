@@ -20,11 +20,11 @@ defect, and the finding is written for you in SOP language before you leave the
 property. Every system gets its inspected / not inspected / not present line, and
 you approve every word before anything goes to the client.
 
-The whole point is getting the report out the same afternoon instead of
-writing it that night.
+Easiest way to judge it: reply with 10 to 15 photos from any recent
+inspection and I'll send back the finished report so you
+can see it on a house you know. No signup.
 
-Would you try it on one inspection this week? Free, no card, and I'll set it up
-with you on a 10 minute call if that helps.
+Want to send me a few?
 
 Enlil
 Lookover · uselookover.com/fl
@@ -42,9 +42,9 @@ Lookover · uselookover.com/fl
 
 Hey {first_name}, bumping this in case it got buried.
 
-The short version: photo + a few words in the field, finished report on your
-phone. If report writing isn't a pain for you, no worries, just tell me and I'll
-leave you alone.
+The offer stands: reply with photos from one recent inspection and you'll get
+the finished report back, no signup. If report writing isn't a pain for you, no
+worries, just tell me and I'll leave you alone.
 
 Enlil
 
@@ -54,8 +54,9 @@ Enlil
 
 {first_name}, last note from me.
 
-If the timing's wrong, totally fine. If you ever want to see it, reply "show me"
-and I'll send a 60-second video of a real report getting written.
+If the timing's wrong, totally fine. If you're curious, reply with a handful of
+photos from any inspection and I'll send back the finished report so you can
+see what it writes. That's all it takes.
 
 Enlil
 

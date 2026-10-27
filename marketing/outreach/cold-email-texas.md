@@ -18,6 +18,10 @@ built from inspectors' own websites and checked against TREC's public license li
   "same afternoon"; say it cuts the writing time instead.
 - No prices, no "AI" in the subject, no "free for life", no attachments.
 - First email has one link at most (the homepage). Follow-ups have none.
+- The ask (since 2026-10-26) is the write-it-for-you offer: they reply with
+  photos from a recent inspection and get the finished report back. Leads already
+  in the sequence get the new email 3 (day 8); handling photo replies is in the
+  signup monitor task.
 - Footer: postal address + "reply 'no thanks' and I won't email again" (CAN-SPAM).
   Honor every opt-out the same day; log it in `outreach-log.json`.
 - Stop the sequence the moment anyone replies.
@@ -38,11 +42,11 @@ defect, and the finding is written for you in SOP language before you leave the
 driveway. For Texas it fills out the TREC REI 7-6 form, I/NI/NP/D boxes and all.
 You approve every line before anything goes to the client.
 
-The whole point is getting the report out the same afternoon instead of
-writing it that night.
+Easiest way to judge it: reply with 10 to 15 photos from any recent
+inspection and I'll send back the finished report so you
+can see it on a house you know. No signup.
 
-Would you try it on one inspection this week? Free, no card, and I'll set it up
-with you on a 10 minute call if that helps.
+Want to send me a few?
 
 Enlil
 Lookover · uselookover.com/tx
@@ -60,9 +64,9 @@ Lookover · uselookover.com/tx
 
 Hey {first_name}, bumping this in case it got buried.
 
-The short version: photo + a few words in the field, finished TREC report on
-your phone. If report writing isn't a pain for you, no worries, just tell me and
-I'll leave you alone.
+The offer stands: reply with photos from one recent inspection and you'll get
+the finished TREC report back, no signup. If report writing isn't a pain for
+you, no worries, just tell me and I'll leave you alone.
 
 Enlil
 
@@ -72,8 +76,9 @@ Enlil
 
 {first_name}, last note from me.
 
-If the timing's wrong, totally fine. If you ever want to see it, reply "show me"
-and I'll send a 60-second video of a real report getting written.
+If the timing's wrong, totally fine. If you're curious, reply with a handful of
+photos from any inspection and I'll send back the finished report so you can
+see what it writes. That's all it takes.
 
 Enlil
 
