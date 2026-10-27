@@ -25,7 +25,9 @@ best shot we have at a paying inspector, so it beats everything else that day.
    duplicates and anything you can't support from the photo. Don't invent
    conditions the photos don't show. Approve.
 5. Finalize. Open the client report link (`/report/<slug>`) and the PDF and
-   check them as the inspector would: right state form (TREC REI 7-6 for Texas),
+   check them as the inspector would: right state form (TREC REI 7-6 for Texas;
+   the app only uses it when the account's license state is TX, so for a Texas
+   lead check Settings first and fill in the Texas form panel on Review),
    no empty sections that look broken, no test data.
 
 ## Send (reply in their thread, from hello@)
