@@ -58,6 +58,10 @@ Lookover · uselookover.com/tx
   probably written the same water heater finding a thousand times."
 - "Noticed you offer infrared and pool inspections too, which usually means even
   more writing at night."
+- New licensee (leads-tx-new-*.csv): "Saw you got your TREC license this summer
+  and started {company}, so you're probably still figuring out how you want to
+  write reports." Never say how we know beyond "saw"; never say "new" in a way
+  that sounds like a knock.
 - (no good detail) → leave the line out.
 
 ## Email 2 (day 3, reply in same thread)

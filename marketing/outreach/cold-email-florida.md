@@ -36,6 +36,9 @@ Lookover · uselookover.com/fl
   guessing the writing piles up."
 - "Noticed you've been inspecting around Sarasota for 15 years, so you've
   probably written the same water heater finding a thousand times."
+- New licensee (leads-fl-new-*.csv): "Saw you got your Florida license this year
+  and started {company}, so you're probably still settling on how you write
+  reports."
 - (no good detail) → leave the line out.
 
 ## Email 2 (day 3, reply in same thread)
