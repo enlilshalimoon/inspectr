@@ -1,7 +1,7 @@
 # Lookover — current status & handoff
 
 Living doc. Any session (cloud or local) should read this after AGENTS.md and update it before ending.
-Last updated: 2026-10-18.
+Last updated: 2026-10-28.
 
 ## Where things stand
 
@@ -33,6 +33,7 @@ Last updated: 2026-10-18.
     - **Lookover signup monitor:** every 2h. Answers replies: opt-outs are recorded, interested leads get the signup link and a call offer. Its midday run is also a watchdog: it alerts if outreach didn't send or lead gen stalled, and auto-pauses at a 5%+ bounce rate.
     - **Write-it-for-you offer (2026-10-26):** every email now asks inspectors to reply with 10–15 photos from a recent inspection and get the finished report back. The monitor acknowledges photo replies and push-notifies "PHOTOS IN"; the report is built in an interactive session following `marketing/outreach/write-it-for-you.md` (promise: back within 24h).
     - **Second sending domain (2026-10-26):** `trylookover.com` (Namecheap, $11.48 first year, renews ~$15) is a Google Workspace user alias domain on hello@, so hello@trylookover.com lands in the same inbox at no extra seat cost. DNS: Google MX, SPF, DMARC p=none, DKIM selector `google` (authenticating). Warm-up ramp in `outreach-config.json` "second_sender" (5/day from Oct 28 → 10 → 20 → 30 by Nov 18); It is enabled; until Gmail "Send mail as" hello@trylookover.com is added, the outreach task skips it and says so. MX is `smtp.google.com` (custom MX), Gmail activated for the domain. The outreach task records `sender` per lead and sends follow-ups from the same address.
+    - **/try no-signup demo (2026-10-28, live):** uselookover.com/try. An inspector drops up to 15 photos and each comes back as a drafted finding grouped by section (same vision + drafting models as capture, `app/api/try/draft/route.ts`). Photos are never stored; each draft writes a row to `try_drafts` (migration 0006, applied) for limits (15 per visitor IP hash and 300 total per 24h) and counting. Pixel fires custom `TryDraft` on the first result. Cold email short links `/tx`, `/fl`, `/go` now land on /try, the homepage hero has a "Try it on your own photos" button, and all three emails ask "try it on your last inspection" (`copy_version: try_oct28` in the log). `prepareImage` moved to `lib/inspection/prepare-image.ts` (shared with capture).
     - **Lookover outreach weekly report:** Fridays at 3:20pm. Writes `marketing/outreach/weekly/<date>.md` and swaps a losing subject line once there's enough data.
   - **Shared Chrome:** all browser tasks use the main Mac Chrome (deviceId f51051ef…) so they don't switch each other's browser. Schedules are staggered.
   - **Footer address:** the Spyre Studio LLC virtual mailbox (LegalZoom/Earth Class Mail), as CAN-SPAM requires.
