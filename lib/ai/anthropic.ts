@@ -107,7 +107,15 @@ export async function analyzePhoto(
   // can't follow Supabase's signed-URL redirects reliably, so we proxy.
   const res = await fetch(imageUrl);
   if (!res.ok) throw new Error(`fetch image failed: ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  return analyzeImageBytes(Buffer.from(await res.arrayBuffer()), hintSection);
+}
+
+// Same analysis from bytes already in memory (the public /try demo never stores
+// the photo, so there's no URL to fetch).
+export async function analyzeImageBytes(
+  buf: Buffer,
+  hintSection?: FindingPromptInput["section"],
+): Promise<VisionAnalysis> {
   const b64 = buf.toString("base64");
   const mediaType = sniffMediaType(buf);
   if (!mediaType) throw new UnsupportedImageError(unsupportedImageMessage(buf));

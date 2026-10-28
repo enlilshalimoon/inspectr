@@ -42,10 +42,10 @@ export function Hero() {
               Start 14-day free trial
             </Link>
             <Link
-              href="#how-it-works"
+              href="/try"
               className="inline-flex h-12 items-center px-6 rounded-md border border-slate-300 bg-white text-slate-900 font-medium hover:bg-slate-50"
             >
-              See how it works
+              Try it on your own photos
             </Link>
           </div>
           <p className="text-xs text-slate-500 pt-1">

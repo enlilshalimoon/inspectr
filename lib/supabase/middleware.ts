@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   "/auth/confirm",
   // Marketing / informational pages — public by design.
   "/sample",
+  "/try",
   "/terms",
   "/privacy",
   "/data-export",
@@ -29,6 +30,7 @@ const PUBLIC_PATHS = [
 
 const PUBLIC_PREFIXES = [
   "/report/",
+  "/api/try/", // public no-signup demo; rate-limited in the route
   "/api/stripe/webhook",
   "/api/cron/", // cron jobs auth via CRON_SECRET bearer, not a user session
   "/_next",
