@@ -8,26 +8,26 @@ does NOT fill out Citizens 4-point or wind-mitigation forms, so never claim it d
 ## Email 1 (day 0)
 
 **Subject (A/B test, alternate by lead):**
-- A: `{first_name}, quick one about your reports`
-- B: `Report done before you leave the driveway?`
+- A: `{first_name}, try this on your last inspection`
+- B: `Your inspection photos, written up in 2 minutes`
 
 Hey {first_name},
 
-I'm Enlil, I built an app for home inspectors called Lookover. {personal_line}
+I'm Enlil, I built Lookover, an app that writes inspection findings from your
+photos. {personal_line}
 
-You walk the house and take photos like normal, say a few words about each
-defect, and the finding is written for you in SOP language before you leave the
-property. Every system gets its inspected / not inspected / not present line, and
-you approve every word before anything goes to the client.
+Quickest way to judge it: go to uselookover.com/fl, pick 10 photos from your last
+inspection, and each one comes back as a written finding in SOP language,
+grouped by section. Takes about two minutes. No signup, and the photos aren't
+saved.
 
-Easiest way to judge it: reply with 10 to 15 photos from any recent
-inspection and I'll send back the finished report so you
-can see it on a house you know. No signup.
+On a real job you add a few spoken words per defect and approve every line
+before it goes out, with the inspected / not inspected / not present line for every system.
 
-Want to send me a few?
+Worth two minutes to see if it gets your houses right?
 
 Enlil
-Lookover · uselookover.com/fl
+Lookover
 
 {footer}
 
@@ -45,9 +45,9 @@ Lookover · uselookover.com/fl
 
 Hey {first_name}, bumping this in case it got buried.
 
-The offer stands: reply with photos from one recent inspection and you'll get
-the finished report back, no signup. If report writing isn't a pain for you, no
-worries, just tell me and I'll leave you alone.
+If you've got two minutes between jobs: uselookover.com/fl, drop in a few photos from
+any inspection and see what it writes. No signup. If report writing isn't a
+pain for you, just tell me and I'll leave you alone.
 
 Enlil
 
@@ -57,9 +57,8 @@ Enlil
 
 {first_name}, last note from me.
 
-If the timing's wrong, totally fine. If you're curious, reply with a handful of
-photos from any inspection and I'll send back the finished report so you can
-see what it writes. That's all it takes.
+If you ever want to see it on your own houses, uselookover.com/fl takes two minutes
+and no signup. Either way, good luck with the rest of the season.
 
 Enlil
 

@@ -2,36 +2,36 @@
 
 Same rules, footer, cadence and logging as `cold-email-texas.md`. Used for any
 `leads-<state>-*.csv` file whose state isn't TX or FL. Link: `uselookover.com/go`
-(redirects with utm_campaign=states_oct26). Lookover's report includes a full
+(redirects to the /try demo with utm_campaign=states_oct26). Lookover's report includes a full
 systems inventory plus state-specific statements for NC, VA, PA, WI and KY
 (`lib/compliance/state-rules.ts`). Only mention a state rule if it's in that file.
 
 ## Email 1 (day 0)
 
 **Subject (A/B test, alternate by lead):**
-- A: `{first_name}, quick one about your reports`
-- B: `Report done before you leave the driveway?`
+- A: `{first_name}, try this on your last inspection`
+- B: `Your inspection photos, written up in 2 minutes`
 
 Hey {first_name},
 
-I'm Enlil, I built an app for home inspectors called Lookover. {personal_line}
+I'm Enlil, I built Lookover, an app that writes inspection findings from your
+photos. {personal_line}
 
-You walk the house and take photos like normal, say a few words about each
-defect, and the finding is written for you in SOP language before you leave the
-property. Every system gets its inspected / not inspected / not present line, and
-you approve every word before anything goes to the client.
+Quickest way to judge it: go to uselookover.com/go, pick 10 photos from your last
+inspection, and each one comes back as a written finding in SOP language,
+grouped by section. Takes about two minutes. No signup, and the photos aren't
+saved.
 
-Easiest way to judge it: reply with 10 to 15 photos from any recent
-inspection and I'll send back the finished report so you
-can see it on a house you know. No signup.
+On a real job you add a few spoken words per defect and approve every line
+before it goes out, with the inspected / not inspected / not present line for every system.
 
-Want to send me a few?
+Worth two minutes to see if it gets your houses right?
 
 Enlil
-Lookover · uselookover.com/go
+Lookover
 
 {footer}
 
 ## Email 2 (day 3) and Email 3 (day 8)
 
-Same as `cold-email-florida.md`.
+Same as `cold-email-florida.md`, with uselookover.com/go in place of uselookover.com/fl.

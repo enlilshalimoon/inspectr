@@ -17,11 +17,13 @@ built from inspectors' own websites and checked against TREC's public license li
   review counts. If they already advertise same-day reports, don't pitch
   "same afternoon"; say it cuts the writing time instead.
 - No prices, no "AI" in the subject, no "free for life", no attachments.
-- First email has one link at most (the homepage). Follow-ups have none.
-- The ask (since 2026-10-26) is the write-it-for-you offer: they reply with
-  photos from a recent inspection and get the finished report back. Leads already
-  in the sequence get the new email 3 (day 8); handling photo replies is in the
-  signup monitor task.
+- Each email has exactly one link: the state short link (`uselookover.com/tx`,
+  `/fl`, `/go`). It lands on /try, the no-signup demo where they drop photos and
+  see the written findings. Follow-ups carry the same link.
+- The ask (since 2026-10-28) is "try it on your last inspection" at that link.
+  It replaced the reply-with-photos offer (2026-10-26) and the video offer before
+  that: 100 emails, 3 replies, all no. If someone still replies with photos, the
+  signup monitor and `write-it-for-you.md` handle it.
 - Footer: postal address + "reply 'no thanks' and I won't email again" (CAN-SPAM).
   Honor every opt-out the same day; log it in `outreach-log.json`.
 - Stop the sequence the moment anyone replies.
@@ -29,27 +31,27 @@ built from inspectors' own websites and checked against TREC's public license li
 ## Email 1 (day 0)
 
 **Subject (A/B test, alternate by lead):**
-- A: `{first_name}, quick one about TREC reports`
-- B: `TREC report before you leave the driveway?`
+- A: `{first_name}, try this on your last inspection`
+- B: `Your photos, written up as TREC findings`
 Log which one each lead got (`subject_variant`: "A"/"B" in outreach-log.json).
 
 Hey {first_name},
 
-I'm Enlil, I built an app for Texas inspectors called Lookover. {personal_line}
+I'm Enlil, I built Lookover, an app that writes inspection findings from your
+photos. {personal_line}
 
-You walk the house and take photos like normal, say a few words about each
-defect, and the finding is written for you in SOP language before you leave the
-driveway. For Texas it fills out the TREC REI 7-6 form, I/NI/NP/D boxes and all.
-You approve every line before anything goes to the client.
+Quickest way to judge it: go to uselookover.com/tx, pick 10 photos from your last
+inspection, and each one comes back as a written finding in SOP language,
+grouped by section. Takes about two minutes. No signup, and the photos aren't
+saved.
 
-Easiest way to judge it: reply with 10 to 15 photos from any recent
-inspection and I'll send back the finished report so you
-can see it on a house you know. No signup.
+On a real job you add a few spoken words per defect and approve every line
+before it goes out, and for Texas it fills out the TREC REI 7-6, I/NI/NP/D boxes and all.
 
-Want to send me a few?
+Worth two minutes to see if it gets your houses right?
 
 Enlil
-Lookover · uselookover.com/tx
+Lookover
 
 {footer}
 
@@ -68,9 +70,9 @@ Lookover · uselookover.com/tx
 
 Hey {first_name}, bumping this in case it got buried.
 
-The offer stands: reply with photos from one recent inspection and you'll get
-the finished TREC report back, no signup. If report writing isn't a pain for
-you, no worries, just tell me and I'll leave you alone.
+If you've got two minutes between jobs: uselookover.com/tx, drop in a few photos from
+any inspection and see what it writes. No signup. If report writing isn't a
+pain for you, just tell me and I'll leave you alone.
 
 Enlil
 
@@ -80,9 +82,8 @@ Enlil
 
 {first_name}, last note from me.
 
-If the timing's wrong, totally fine. If you're curious, reply with a handful of
-photos from any inspection and I'll send back the finished report so you can
-see what it writes. That's all it takes.
+If you ever want to see it on your own houses, uselookover.com/tx takes two minutes
+and no signup. Either way, good luck with the rest of the season.
 
 Enlil
 
