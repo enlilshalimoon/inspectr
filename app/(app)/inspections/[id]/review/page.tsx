@@ -33,7 +33,7 @@ export default async function ReviewPage({ params }: Props) {
     await Promise.all([
       supabase
         .from("inspections")
-        .select("id, status, property_year_built, property_sqft, property_type")
+        .select("id, status, property_state, property_year_built, property_sqft, property_type")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -62,10 +62,13 @@ export default async function ReviewPage({ params }: Props) {
     .select("license_state")
     .eq("id", user.id)
     .maybeSingle();
-  const trecForm = isTexasLicense(inspector?.license_state) ? await loadReportForm(supabase, id) : null;
+  const effectiveTrecState = isTexasLicense(inspector?.license_state)
+    ? inspector?.license_state
+    : inspection.property_state;
+  const trecForm = isTexasLicense(effectiveTrecState) ? await loadReportForm(supabase, id) : null;
   const trecFindings = trecForm ? await loadFindingsForForm(supabase, id) : [];
   const trecMissing =
-    trecForm && usesTrecForm(inspector?.license_state, trecForm)
+    trecForm && usesTrecForm(effectiveTrecState, trecForm)
       ? itemsMissingStatus(resolveItems(trecForm, trecFindings)).length
       : 0;
 

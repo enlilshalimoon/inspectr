@@ -100,9 +100,9 @@ export default function TermsPage() {
 
       <h2>11. Governing law</h2>
       <p>
-        These terms are governed by the laws of the State of [TBD], without regard to
+        These terms are governed by the laws of the State of California, without regard to
         conflict-of-law principles. Any disputes will be resolved in the state or
-        federal courts located in [TBD].
+        federal courts located in Los Angeles County, California.
       </p>
 
       <h2>12. Contact</h2>

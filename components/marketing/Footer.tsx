@@ -8,12 +8,12 @@ export function Footer() {
           <p className="text-lg font-semibold text-slate-900">Lookover</p>
           <ul className="mt-4 space-y-2 text-sm text-slate-600">
             <li>
-              <Link href="#how-it-works" className="hover:text-slate-900">
+              <Link href="/#how-it-works" className="hover:text-slate-900">
                 How it works
               </Link>
             </li>
             <li>
-              <Link href="#pricing" className="hover:text-slate-900">
+              <Link href="/#pricing" className="hover:text-slate-900">
                 Pricing
               </Link>
             </li>
@@ -41,7 +41,7 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="#faq" className="hover:text-slate-900">
+              <Link href="/#faq" className="hover:text-slate-900">
                 FAQ
               </Link>
             </li>

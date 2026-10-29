@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type Item = {
   question: string;
@@ -24,9 +25,11 @@ const items: Item[] = [
       <p>
         The workflow is built so that you remain the inspector of record — every finding
         is reviewed and approved by you before the report finalizes, with an audit trail.
-        We don&apos;t speak for your carrier, but we&apos;re putting together a guidance
-        document you can share with them. If you want to be the first to receive it,
-        reach out.
+        We don&apos;t speak for your carrier, but we have a{" "}
+        <Link href="/e-and-o" className="text-orange-700 underline underline-offset-2">
+          1-page overview for your E&amp;O carrier
+        </Link>{" "}
+        that you can share with them or your attorney.
       </p>
     ),
   },
@@ -34,11 +37,12 @@ const items: Item[] = [
     question: "Does this work for InterNACHI SOP / state-specific standards?",
     answer: (
       <p>
-        The draft language is written against InterNACHI Standards of Practice. We&apos;re
-        at 86% on our internal benchmark (29 representative findings) and improving every
-        release. State-specific addenda — Texas TREC, California CREIA, etc. — are on the
-        roadmap; in the meantime, your existing report templates and disclaimers can be
-        added in settings.
+        Yes. The draft language is written against InterNACHI Standards of Practice (86%
+        on our 29-case benchmark before your review). For Texas inspectors, Lookover
+        fills out the promulgated TREC REI 7-6 form — I/NI/NP/D checkboxes, system
+        fields, and item comments included. State-mandated report rules and summary pages
+        for North Carolina, Wisconsin, Virginia, Pennsylvania, Kentucky, Florida, and Ohio
+        are also built in, and you can customize your SOP and disclaimers in Settings.
       </p>
     ),
   },

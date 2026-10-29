@@ -558,24 +558,26 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
           Review tab is where they get edited, approved and turned into a
           report. */}
       {draftedCount > 0 && (
-        <Card className="border-emerald-200 bg-emerald-50">
-          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-emerald-900">
-              <span className="font-medium">
-                {draftedCount} finding{draftedCount === 1 ? "" : "s"} drafted.
-              </span>{" "}
-              {processingCount > 0
-                ? `${processingCount} more on the way. Keep shooting, or review what's ready.`
-                : "Review, edit and approve them, then finalize the report."}
-            </div>
-            <Link
-              href={`/inspections/${inspectionId}/review`}
-              className="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
-            >
-              Review drafts →
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="sticky top-16 z-20">
+          <Card className="border-2 border-emerald-300 bg-emerald-50 shadow-sm">
+            <CardContent className="p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm text-emerald-900">
+                <span className="font-medium">
+                  {draftedCount} finding{draftedCount === 1 ? "" : "s"} drafted.
+                </span>{" "}
+                {processingCount > 0
+                  ? `${processingCount} more on the way. Keep shooting, or review what's ready.`
+                  : "Review, edit and approve them, then finalize the report."}
+              </div>
+              <Link
+                href={`/inspections/${inspectionId}/review`}
+                className="inline-flex items-center gap-1 px-3.5 py-2 text-sm font-medium rounded-md bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
+              >
+                Review &amp; approve findings →
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <Card>
@@ -671,6 +673,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
             <PhotoCard
               key={p.id}
               photo={p}
+              reviewHref={`/inspections/${inspectionId}/review`}
               sectionLabel={
                 sectionList.find((s) => s.id === p.section_id)?.label ??
                 (p.status === "uploaded" && p.ai_status !== "processing" ? "Unassigned" : "Auto")
@@ -694,6 +697,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
 // ---------------------------------------------------------------------------
 function PhotoCard({
   photo,
+  reviewHref,
   sectionLabel,
   onDelete,
   onRetry,
@@ -703,6 +707,7 @@ function PhotoCard({
   onStopRecord,
 }: {
   photo: CapturePhoto;
+  reviewHref: string;
   sectionLabel: string;
   onDelete: () => void;
   onRetry: () => void;
@@ -809,13 +814,21 @@ function PhotoCard({
 
         {/* AI finding preview */}
         {photo.finding && sevColor && (
-          <div className="space-y-1">
-            <span
-              className={`inline-flex items-center gap-1.5 text-[10px] px-1.5 py-0.5 rounded-full border ${sevColor.pill}`}
-            >
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${sevColor.dot}`} />
-              {SEVERITY_LABEL[photo.finding.severity]}
-            </span>
+          <div className="space-y-1.5 pt-1 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 text-[10px] px-1.5 py-0.5 rounded-full border ${sevColor.pill}`}
+              >
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${sevColor.dot}`} />
+                {SEVERITY_LABEL[photo.finding.severity]}
+              </span>
+              <Link
+                href={reviewHref}
+                className="text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline underline-offset-2"
+              >
+                Review &amp; approve →
+              </Link>
+            </div>
             <p className="text-sm font-medium text-slate-900">{photo.finding.title}</p>
           </div>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,7 +131,15 @@ export function SignupForm() {
       </Button>
 
       <p className="text-xs text-slate-500">
-        By creating an account, you agree to our terms and privacy policy.
+        By creating an account, you agree to our{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-slate-700">
+          terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-slate-700">
+          privacy policy
+        </Link>
+        .
       </p>
     </form>
   );

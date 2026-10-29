@@ -9,19 +9,19 @@ export function Nav() {
         </Link>
         <nav className="flex items-center gap-2 text-sm">
           <Link
-            href="#how-it-works"
+            href="/#how-it-works"
             className="hidden sm:inline-flex px-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-100"
           >
             How it works
           </Link>
           <Link
-            href="#pricing"
+            href="/#pricing"
             className="hidden sm:inline-flex px-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-100"
           >
             Pricing
           </Link>
           <Link
-            href="#faq"
+            href="/#faq"
             className="hidden sm:inline-flex px-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-100"
           >
             FAQ

@@ -9,7 +9,7 @@ import { Footer } from "./Footer";
 export function LegalPage({
   title,
   lastUpdated,
-  draftNotice = true,
+  draftNotice = false,
   children,
 }: {
   title: string;

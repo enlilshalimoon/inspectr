@@ -27,7 +27,7 @@ const FROM_SYSTEM =
 // inbox and are no longer read.
 const FROM_FOUNDER =
   process.env.RESEND_FOUNDER_FROM ?? "Enlil at Lookover <enlil@uselookover.com>";
-export const FOUNDER_REPLY_TO = "enlilshalimoon@gmail.com";
+export const FOUNDER_REPLY_TO = "hello@uselookover.com";
 
 const BRAND = {
   navy: "#0f172a",

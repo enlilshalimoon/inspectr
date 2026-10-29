@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Finding, SectionType } from "@/lib/supabase/types";
 import {
+  isTexasLicense,
   itemsMissingStatus,
   parseReportForm,
   resolveItems,
@@ -70,11 +71,15 @@ export async function loadTrecStatus(
   inspectionId: string,
   inspectorId: string,
 ): Promise<{ applies: boolean; missing: string[] }> {
-  const [{ data: inspector }, form] = await Promise.all([
+  const [{ data: inspector }, { data: insp }, form] = await Promise.all([
     supabase.from("users").select("license_state").eq("id", inspectorId).maybeSingle(),
+    supabase.from("inspections").select("property_state").eq("id", inspectionId).maybeSingle(),
     loadReportForm(supabase, inspectionId),
   ]);
-  if (!form || !usesTrecForm((inspector as { license_state: string | null } | null)?.license_state, form)) {
+  const licenseState = (inspector as { license_state: string | null } | null)?.license_state;
+  const propertyState = (insp as { property_state: string | null } | null)?.property_state;
+  const effectiveState = isTexasLicense(licenseState) ? licenseState : propertyState;
+  if (!form || !usesTrecForm(effectiveState, form)) {
     return { applies: false, missing: [] };
   }
   const findings = await loadFindingsForForm(supabase, inspectionId);

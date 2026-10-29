@@ -12,7 +12,7 @@ import type { Finding, Photo, SectionType } from "@/lib/supabase/types";
 import { TrecReportDoc } from "./trec/rei76-doc";
 import { buildTrecReportData } from "./trec/build";
 import { loadReportForm } from "@/lib/trec/load";
-import { usesTrecForm, type ReportForm } from "@/lib/trec/form";
+import { isTexasLicense, usesTrecForm, type ReportForm } from "@/lib/trec/form";
 import { isOwnStoragePath } from "@/lib/inspection/photos";
 import { readSectionStatus } from "@/lib/inspection/system-status";
 import { buildCompliance } from "@/lib/compliance/report";
@@ -34,7 +34,10 @@ export async function renderInspectionPdf(
 
   // Texas inspectors deliver the promulgated TREC REI 7-6 form instead.
   const form = await loadReportForm(supabase, inspectionId);
-  if (form && usesTrecForm(data.inspector.license_state, form)) {
+  const effectiveTrecState = isTexasLicense(data.inspector.license_state)
+    ? data.inspector.license_state
+    : data.property.state;
+  if (form && usesTrecForm(effectiveTrecState, form)) {
     return renderToBuffer(<TrecReportDoc data={trecDataFrom(data, form)} />);
   }
   return renderToBuffer(<InspectionReportDoc data={data} />);

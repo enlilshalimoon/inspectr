@@ -22,6 +22,7 @@ const PUBLIC_PATHS = [
   // Marketing / informational pages — public by design.
   "/sample",
   "/try",
+  "/spectora",
   "/terms",
   "/privacy",
   "/data-export",
