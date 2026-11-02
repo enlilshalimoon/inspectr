@@ -11,6 +11,18 @@ import type { SectionType, Severity } from "@/lib/supabase/types";
 const MAX_PHOTOS = 15;
 const CONCURRENCY = 3;
 
+// For visitors without inspection photos handy (most cold-email clicks happen
+// at a desk, with the photos on a phone or in report software). Openly
+// licensed photos from Wikimedia Commons; credits render under the results.
+const SAMPLE_PREFIX = "lookover-sample-";
+const SAMPLES = [
+  { file: "roof-shingles.jpg", artist: "Samuel Bolton", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:Asphalt_shingles_damage.jpg" },
+  { file: "roof-worn.jpg", artist: "Dale Mahalko", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Failure_of_asphalt_shingles_allowing_roof_leakage.JPG" },
+  { file: "water-heater.jpg", artist: "Infrogmation of New Orleans", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:Rheem_home_gas_water_heater_tank_-_top_of_tank.jpg" },
+  { file: "siding-rot.jpg", artist: "Alton", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Termite_damage.JPG" },
+  { file: "ceiling-stain.jpg", artist: "Ed!", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Water_Damage.JPG" },
+];
+
 type Draft = {
   section: SectionType;
   section_label: string;
@@ -33,6 +45,8 @@ type Item = {
 export function TryClient() {
   const [items, setItems] = useState<Item[]>([]);
   const [limitHit, setLimitHit] = useState<string | null>(null);
+  const [usedSamples, setUsedSamples] = useState(false);
+  const [loadingSamples, setLoadingSamples] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const tracked = useRef(false);
 
@@ -46,6 +60,7 @@ export function TryClient() {
         const prepared = await prepareImage(file);
         const body = new FormData();
         body.append("photo", prepared);
+        if (file.name.startsWith(SAMPLE_PREFIX)) body.append("sample", "1");
         const res = await fetch("/api/try/draft", { method: "POST", body });
         const data = await res.json().catch(() => null);
         if (res.status === 429) {
@@ -70,7 +85,7 @@ export function TryClient() {
   );
 
   const onFiles = useCallback(
-    async (list: FileList | null) => {
+    async (list: FileList | File[] | null) => {
       if (!list?.length) return;
       const room = MAX_PHOTOS - items.length;
       const files = Array.from(list)
@@ -99,6 +114,22 @@ export function TryClient() {
     },
     [items.length, run],
   );
+
+  const onSamples = useCallback(async () => {
+    setLoadingSamples(true);
+    try {
+      const files = await Promise.all(
+        SAMPLES.map(async (s) => {
+          const res = await fetch(`/try-samples/${s.file}`);
+          return new File([await res.blob()], SAMPLE_PREFIX + s.file, { type: "image/jpeg" });
+        }),
+      );
+      setUsedSamples(true);
+      await onFiles(files);
+    } finally {
+      setLoadingSamples(false);
+    }
+  }, [onFiles]);
 
   const done = items.filter((i) => i.status === "done");
   const working = items.filter((i) => i.status === "working").length;
@@ -166,6 +197,20 @@ export function TryClient() {
               : "From your camera roll or computer · up to 15"}
           </span>
         </button>
+      )}
+
+      {items.length === 0 && !limitHit && (
+        <p className="mt-4 text-center text-sm text-slate-600">
+          Photos not on this device?{" "}
+          <button
+            type="button"
+            onClick={() => void onSamples()}
+            disabled={loadingSamples}
+            className="font-medium text-slate-900 underline underline-offset-2 hover:text-slate-700 disabled:opacity-50"
+          >
+            {loadingSamples ? "Loading samples…" : "Try it on 5 sample defect photos"}
+          </button>
+        </p>
       )}
 
       {limitHit && (
@@ -275,6 +320,21 @@ export function TryClient() {
               <span className="text-sm text-slate-400">14-day free trial · no card</span>
             </div>
           </div>
+
+          {usedSamples && (
+            <p className="text-xs text-slate-400">
+              Sample photos from Wikimedia Commons:{" "}
+              {SAMPLES.map((s, i) => (
+                <span key={s.file}>
+                  {i > 0 && " · "}
+                  <a href={s.source} target="_blank" rel="noopener noreferrer" className="underline">
+                    {s.artist}
+                  </a>{" "}
+                  ({s.license})
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       )}
     </div>

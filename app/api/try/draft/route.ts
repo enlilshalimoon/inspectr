@@ -80,9 +80,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Sample-photo runs are tagged so usage reports can separate them from
+  // inspectors trying their own photos.
+  const source = await firstTouch();
+  const sample = form?.get("sample") === "1";
   await db.from("try_drafts").insert({
     visitor,
-    source: await firstTouch(),
+    source: sample ? { ...(source ?? {}), sample: true } : source,
     section,
     severity: finding.severity,
     title: finding.title?.slice(0, 200),
