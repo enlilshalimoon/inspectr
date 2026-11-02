@@ -20,7 +20,7 @@ const SAMPLES = [
   { file: "roof-worn.jpg", artist: "Dale Mahalko", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Failure_of_asphalt_shingles_allowing_roof_leakage.JPG" },
   { file: "water-heater.jpg", artist: "Infrogmation of New Orleans", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:Rheem_home_gas_water_heater_tank_-_top_of_tank.jpg" },
   { file: "siding-rot.jpg", artist: "Alton", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Termite_damage.JPG" },
-  { file: "ceiling-stain.jpg", artist: "Ed!", license: "CC BY-SA 3.0", source: "https://commons.wikimedia.org/wiki/File:Water_Damage.JPG" },
+  { file: "ceiling-stain.jpg", artist: "Tomwsulcer", license: "CC0", source: "https://commons.wikimedia.org/wiki/File:Ceiling_sheetrock_damaged_by_water_so_paint_was_peeling.jpg" },
 ];
 
 type Draft = {
