@@ -9,7 +9,6 @@
 // Every call costs two paid model calls, so it's capped per visitor (IP hash)
 // and globally per day. Over a cap, the page tells them to start a trial.
 
-import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -17,6 +16,7 @@ import { analyzeImageBytes, draftFinding, UnsupportedImageError } from "@/lib/ai
 import { resolveSectionType } from "@/lib/inspection/photos";
 import { labelForSection } from "@/lib/supabase/sections";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
+import { signFinding, visitorHash } from "@/lib/try/sign";
 
 export const maxDuration = 60;
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     title: finding.title?.slice(0, 200),
   });
 
-  return NextResponse.json({
+  const draft = {
     section,
     section_label: labelForSection(section),
     finding: {
@@ -101,17 +101,14 @@ export async function POST(req: NextRequest) {
       description: finding.description,
       recommended_action: finding.recommended_action,
     },
+  };
+
+  return NextResponse.json({
+    ...draft,
+    // Lets /api/try/email check it's only sending findings we drafted.
+    sig: signFinding(draft),
     equipment: vision.equipment_data ?? null,
   });
-}
-
-function visitorHash(req: NextRequest): string {
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-  const salt = process.env.CRON_SECRET ?? "lookover-try";
-  return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
 }
 
 async function firstTouch() {

@@ -32,6 +32,7 @@ type Draft = {
     description: string;
     recommended_action: string;
   };
+  sig: string | null;
 };
 
 type Item = {
@@ -303,6 +304,13 @@ export function TryClient() {
             </section>
           ))}
 
+          {working === 0 && (
+            <EmailFindings
+              drafts={sections.flatMap((s) => s.items.map((it) => it.draft!))}
+              sample={usedSamples}
+            />
+          )}
+
           <div className="rounded-xl bg-slate-900 p-6 sm:p-8 text-white">
             <h2 className="text-xl font-semibold">That&apos;s from photos alone.</h2>
             <p className="mt-2 text-slate-300">
@@ -338,5 +346,76 @@ export function TryClient() {
         </div>
       )}
     </div>
+  );
+}
+
+function EmailFindings({ drafts, sample }: { drafts: Draft[]; sample: boolean }) {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const n = drafts.length;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setState("sending");
+    setError(null);
+    try {
+      const res = await fetch("/api/try/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, sample, drafts }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.message ?? "Couldn't send that. Try again.");
+        setState("idle");
+        return;
+      }
+      setState("sent");
+      trackEvent("TryEmail", {}, "trackCustom");
+    } catch {
+      setError("Couldn't send that. Check your connection.");
+      setState("idle");
+    }
+  }
+
+  if (state === "sent") {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
+        Sent to {email}. Check your inbox in a minute. If it&apos;s not there, look in spam.
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
+      <h2 className="text-lg font-semibold text-slate-900">
+        Email me {n === 1 ? "this finding" : `these ${n} findings`}
+      </h2>
+      <p className="mt-1 text-sm text-slate-600">
+        So you can compare them with your own report later. They disappear when you leave this
+        page. Enlil, who built Lookover, may write once to ask what you thought. No mailing list.
+      </p>
+      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          aria-label="Email address"
+          placeholder="you@yourcompany.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="h-11 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900"
+        />
+        <button
+          type="submit"
+          disabled={state === "sending"}
+          className="h-11 rounded-md bg-slate-900 px-5 font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          {state === "sending" ? "Sending…" : "Send them"}
+        </button>
+      </div>
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+    </form>
   );
 }

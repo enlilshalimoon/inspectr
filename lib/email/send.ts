@@ -10,6 +10,8 @@
 // are best-effort: callers should not fail their primary action if email fails.
 
 import type { NudgeStage } from "@/lib/email/nudges";
+import { SEVERITY_LABEL } from "@/lib/utils/severity";
+import type { Severity } from "@/lib/supabase/types";
 
 const FROM_SYSTEM =
   process.env.RESEND_SYSTEM_FROM ?? "Lookover <noreply@uselookover.com>";
@@ -156,6 +158,71 @@ function shell(opts: {
     </td></tr>
   </table>
 </body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// /try findings email — the visitor asked for it on the demo page. Findings arrive
+// in the page's display order, so each section's rows are already together.
+// ---------------------------------------------------------------------------
+export function tryFindingsEmail(opts: {
+  drafts: {
+    section_label: string;
+    finding: { severity: string; title: string; description: string; recommended_action: string };
+  }[];
+  appUrl: string;
+}) {
+  const { drafts, appUrl } = opts;
+  const n = drafts.length;
+  const noun = n === 1 ? "finding" : "findings";
+  const label = (s: string) => SEVERITY_LABEL[s as Severity] ?? s;
+  const intro = `Here ${n === 1 ? "is the finding" : `are the ${n} findings`} Lookover drafted from your photos. Compare them with what you'd have written yourself.`;
+  const close =
+    "What did it get wrong? Reply and tell me. I read every one, and I may write back once to ask what you thought. You're not on a mailing list.";
+
+  let html = "";
+  let text = `${intro}\n`;
+  let current = "";
+  for (const { section_label, finding: f } of drafts) {
+    if (section_label !== current) {
+      current = section_label;
+      html += `<tr><td style="font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${BRAND.slateMuted};border-bottom:1px solid ${BRAND.border};padding:14px 0 6px">${escapeHtml(section_label)}</td></tr>`;
+      text += `\n${section_label.toUpperCase()}\n`;
+    }
+    const rec = f.recommended_action
+      ? `<br><strong>Recommendation:</strong> ${escapeHtml(f.recommended_action)}`
+      : "";
+    html += `<tr><td style="font-size:14px;line-height:1.6;color:${BRAND.slate};padding:12px 0">
+      <strong style="color:${BRAND.navy}">${escapeHtml(f.title)}</strong> <span style="color:${BRAND.slateMuted}">(${escapeHtml(label(f.severity))})</span><br>
+      ${escapeHtml(f.description)}${rec}
+    </td></tr>`;
+    text += `\n${f.title} (${label(f.severity)})\n${f.description}\n`;
+    if (f.recommended_action) text += `Recommendation: ${f.recommended_action}\n`;
+  }
+
+  const signupUrl = `${appUrl}/signup`;
+  return {
+    subject: `Your ${n} Lookover ${noun}`,
+    html: shell({
+      preheader: intro,
+      bodyHtml: `
+    <tr><td style="font-size:15px;line-height:1.65;color:${BRAND.slate};padding-bottom:6px">${escapeHtml(intro)}</td></tr>
+    ${html}
+    <tr><td style="font-size:15px;line-height:1.65;color:${BRAND.slate};padding:16px 0 20px">${escapeHtml(close)}<br><br>Enlil</td></tr>`,
+      ctaLabel: "Run your next inspection on it",
+      ctaUrl: signupUrl,
+      footnote:
+        "You got this because you asked for it on uselookover.com/try. Lookover · Spyre Studio LLC, 8605 Santa Monica Blvd #533622, West Hollywood, CA 90069",
+    }),
+    text: `${text}
+${close}
+
+Enlil
+
+Run your next inspection on it: ${signupUrl}
+
+You got this because you asked for it on uselookover.com/try.
+Lookover · Spyre Studio LLC, 8605 Santa Monica Blvd #533622, West Hollywood, CA 90069`,
+  };
 }
 
 // ---------------------------------------------------------------------------
