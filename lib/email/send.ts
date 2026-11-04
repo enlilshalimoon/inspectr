@@ -173,9 +173,11 @@ export function tryFindingsEmail(opts: {
 }) {
   const { drafts, appUrl } = opts;
   const n = drafts.length;
-  const noun = n === 1 ? "finding" : "findings";
   const label = (s: string) => SEVERITY_LABEL[s as Severity] ?? s;
-  const intro = `Here ${n === 1 ? "is the finding" : `are the ${n} findings`} Lookover drafted from your photos. Compare them with what you'd have written yourself.`;
+  const intro =
+    n === 1
+      ? "Here is the finding Lookover drafted from your photo. Compare it with what you'd have written yourself."
+      : `Here are the ${n} findings Lookover drafted from your photos. Compare them with what you'd have written yourself.`;
   const close =
     "What did it get wrong? Reply and tell me. I read every one, and I may write back once to ask what you thought. You're not on a mailing list.";
 
@@ -201,7 +203,7 @@ export function tryFindingsEmail(opts: {
 
   const signupUrl = `${appUrl}/signup`;
   return {
-    subject: `Your ${n} Lookover ${noun}`,
+    subject: n === 1 ? "Your Lookover finding" : `Your ${n} Lookover findings`,
     html: shell({
       preheader: intro,
       bodyHtml: `
