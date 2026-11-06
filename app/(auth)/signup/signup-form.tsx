@@ -20,19 +20,27 @@ export function SignupForm() {
   const router = useRouter();
   const [state, action, pending] = useActionState<AuthState, FormData>(signupAction, null);
 
-  // A real account was created (action returned ok). Fire the registration event
-  // once: CompleteRegistration for inspectors, a custom NonInspectorSignup for
-  // everyone else (lib/signup-role.ts) so the ad optimizes toward inspectors.
+  // A real account was created (action returned ok). Fire Lead and the registration
+  // event once: CompleteRegistration for inspectors, a custom NonInspectorSignup for
+  // everyone else (lib/signup-role.ts) so the ad optimizes toward inspectors. The ids
+  // match the server's Conversions API events, so Meta counts each one once.
   // Inspectors then navigate on (with a brief beat so the pixel beacon goes out
-  // before we leave the page); non-inspectors see a short note first. Lead
-  // (intent) fires on form submit, not here — see onSubmit.
+  // before we leave the page); non-inspectors see a short note first.
   const completeReportedRef = useRef(false);
   const nonInspector = !!(state?.ok && state.role && !isInspectorRole(state.role));
   useEffect(() => {
     if (state?.ok && !completeReportedRef.current) {
       completeReportedRef.current = true;
-      const ev = registrationPixelEvent(state.role);
-      trackEvent(ev.name, state.role ? { role: state.role } : undefined, ev.method);
+      if (state.events) {
+        const ev = registrationPixelEvent(state.role);
+        trackEvent("Lead", undefined, "track", state.events.lead);
+        trackEvent(
+          ev.name,
+          state.role ? { role: state.role } : undefined,
+          ev.method,
+          state.events.registration,
+        );
+      }
       if (state.next && !nonInspector) {
         const dest = state.next;
         setTimeout(() => router.push(dest), 600);
@@ -63,17 +71,10 @@ export function SignupForm() {
     );
   }
 
-  // Lead = signup intent. Fires only when the form actually submits (passes native
-  // validation), i.e. the user clicked "Create account" with valid fields — NOT on
-  // page view. This is the fix for inflated Lead counts.
   const redirecting = !!(state?.ok && state.next);
 
   return (
-    <form
-      action={action}
-      onSubmit={() => trackEvent("Lead")}
-      className="space-y-4"
-    >
+    <form action={action} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="fullName">Your name</Label>
         <Input id="fullName" name="fullName" autoComplete="name" required />
