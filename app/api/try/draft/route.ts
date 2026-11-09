@@ -17,6 +17,7 @@ import { resolveSectionType } from "@/lib/inspection/photos";
 import { labelForSection } from "@/lib/supabase/sections";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
 import { signFinding, visitorHash } from "@/lib/try/sign";
+import { TRY_VISITOR_COOKIE, TRY_VISITOR_MAX_AGE } from "@/lib/try/signup-link";
 
 export const maxDuration = 60;
 
@@ -103,12 +104,21 @@ export async function POST(req: NextRequest) {
     },
   };
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     ...draft,
     // Lets /api/try/email check it's only sending findings we drafted.
     sig: signFinding(draft),
     equipment: vision.equipment_data ?? null,
   });
+  // Lets signup link the new account to this demo run (lib/try/signup-link.ts).
+  res.cookies.set(TRY_VISITOR_COOKIE, visitor, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: TRY_VISITOR_MAX_AGE,
+  });
+  return res;
 }
 
 async function firstTouch() {

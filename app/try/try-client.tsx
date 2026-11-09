@@ -6,6 +6,7 @@ import { prepareImage } from "@/lib/inspection/prepare-image";
 import { sectionOrder } from "@/lib/inspection/photos";
 import { SEVERITY_COLOR, SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/utils/severity";
 import { trackEvent } from "@/components/MetaPixel";
+import { FREE_FINDINGS, trySignupHref } from "@/lib/try/signup-link";
 import type { SectionType, Severity } from "@/lib/supabase/types";
 
 const MAX_PHOTOS = 15;
@@ -48,6 +49,11 @@ export function TryClient() {
   const [limitHit, setLimitHit] = useState<string | null>(null);
   const [usedSamples, setUsedSamples] = useState(false);
   const [loadingSamples, setLoadingSamples] = useState(false);
+  // Soft gate: the first finding shows in full; the rest unlock with an email
+  // (no password). Kept for the page's life so later findings stay unlocked.
+  const [unlockedEmail, setUnlockedEmail] = useState<string | null>(null);
+  // The first finding to come back stays the free one, wherever later ones sort.
+  const [freeId, setFreeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tracked = useRef(false);
 
@@ -74,6 +80,7 @@ export function TryClient() {
           return;
         }
         update(id, { status: "done", draft: data as Draft });
+        setFreeId((prev) => prev ?? id);
         if (!tracked.current) {
           tracked.current = true;
           trackEvent("TryDraft", {}, "trackCustom");
@@ -153,6 +160,12 @@ export function TryClient() {
       }));
   }, [done]);
 
+  const ordered = sections.flatMap((s) => s.items);
+  const freeIds = new Set(freeId ? [freeId] : []);
+  const locked = !unlockedEmail && ordered.length > FREE_FINDINGS;
+  const lockedCount = locked ? ordered.length - FREE_FINDINGS : 0;
+  const signupHref = trySignupHref(done.length);
+
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 py-10 sm:py-14">
       <div className="max-w-2xl">
@@ -162,7 +175,8 @@ export function TryClient() {
         <p className="mt-4 text-lg text-slate-600">
           Pick 5 to 15 photos from a recent inspection — panel, water heater, roof, whatever
           you&apos;ve got. Each one comes back as a drafted finding, grouped by section the way
-          the report reads. No signup, and the photos aren&apos;t saved.
+          the report reads. The first finding is free to read; your email unlocks the rest. No account or
+          password, and the photos aren&apos;t saved.
         </p>
       </div>
 
@@ -217,7 +231,7 @@ export function TryClient() {
       {limitHit && (
         <div className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
           {limitHit}{" "}
-          <Link href="/signup" className="font-medium underline">
+          <Link href={signupHref} className="font-medium underline">
             Start a free trial
           </Link>
         </div>
@@ -270,10 +284,14 @@ export function TryClient() {
                 {s.items.map((it) => {
                   const f = it.draft!.finding;
                   const c = SEVERITY_COLOR[f.severity];
+                  const hidden = locked && !freeIds.has(it.id);
                   return (
                     <article
                       key={it.id}
-                      className="flex flex-col sm:flex-row gap-4 rounded-xl border border-slate-200 p-4"
+                      aria-hidden={hidden || undefined}
+                      className={`flex flex-col sm:flex-row gap-4 rounded-xl border border-slate-200 p-4 ${
+                        hidden ? "pointer-events-none select-none blur-sm" : ""
+                      }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -289,8 +307,10 @@ export function TryClient() {
                           {SEVERITY_LABEL[f.severity]}
                         </span>
                         <h3 className="mt-2 font-semibold text-slate-900">{f.title}</h3>
-                        <p className="mt-1 text-sm text-slate-700">{f.description}</p>
-                        {f.recommended_action && (
+                        <p className="mt-1 text-sm text-slate-700">
+                          {hidden ? "Drafted finding hidden until you unlock the rest." : f.description}
+                        </p>
+                        {!hidden && f.recommended_action && (
                           <p className="mt-2 text-sm text-slate-900">
                             <span className="font-medium">Recommendation: </span>
                             {f.recommended_action}
@@ -304,10 +324,21 @@ export function TryClient() {
             </section>
           ))}
 
-          {working === 0 && (
-            <EmailFindings
-              drafts={sections.flatMap((s) => s.items.map((it) => it.draft!))}
+          {locked && (
+            <UnlockGate
+              lockedCount={lockedCount}
+              drafts={ordered.map((it) => it.draft!)}
               sample={usedSamples}
+              signupHref={signupHref}
+              onUnlocked={setUnlockedEmail}
+            />
+          )}
+
+          {!locked && working === 0 && (
+            <EmailFindings
+              drafts={ordered.map((it) => it.draft!)}
+              sample={usedSamples}
+              initialEmail={unlockedEmail ?? ""}
             />
           )}
 
@@ -320,7 +351,7 @@ export function TryClient() {
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <Link
-                href="/signup"
+                href={signupHref}
                 className="inline-flex h-11 items-center px-5 rounded-md bg-white text-slate-900 font-medium hover:bg-slate-100"
               >
                 Run your next inspection on it
@@ -345,12 +376,133 @@ export function TryClient() {
           )}
         </div>
       )}
+
+      {done.length > 0 && <StickyTrialCta findings={done.length} href={signupHref} />}
     </div>
   );
 }
 
-function EmailFindings({ drafts, sample }: { drafts: Draft[]; sample: boolean }) {
+// Fix B: once a finding is on screen, keep the trial one tap away. Full-width bar on
+// phones (where most cold-email clicks read), a compact pill on desktop. The spacer
+// stops it covering the last card.
+function StickyTrialCta({ findings, href }: { findings: number; href: string }) {
+  return (
+    <>
+      <div aria-hidden className="h-24" />
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur sm:inset-x-auto sm:right-6 sm:bottom-6 sm:rounded-xl sm:border sm:px-5">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
+          <p className="min-w-0 flex-1 text-sm text-slate-600 sm:flex-none">
+            You drafted {findings} finding{findings === 1 ? "" : "s"}.
+            <span className="hidden sm:inline"> 14-day trial · no card.</span>
+          </p>
+          <Link
+            href={href}
+            onClick={() => trackEvent("TrySignupClick", { findings, placement: "sticky" }, "trackCustom")}
+            className="inline-flex h-11 shrink-0 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Keep these drafts — start free trial
+          </Link>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Fix A: the soft gate. Email (no password) unlocks the rest of the findings and
+// saves a try_leads row; it sends nothing. The trial link is the other way through.
+function UnlockGate({
+  lockedCount,
+  drafts,
+  sample,
+  signupHref,
+  onUnlocked,
+}: {
+  lockedCount: number;
+  drafts: Draft[];
+  sample: boolean;
+  signupHref: string;
+  onUnlocked: (email: string) => void;
+}) {
   const [email, setEmail] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/try/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, sample, drafts, unlock: true }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 400) {
+        setError(data?.message ?? "That email address doesn't look right.");
+        return;
+      }
+      // Anything else (including a rate limit or our own error) still unlocks: the
+      // gate is for capture, never a reason to lose the visitor.
+      trackEvent("TryUnlock", { findings: drafts.length }, "trackCustom");
+      onUnlocked(email.trim().toLowerCase());
+    } catch {
+      onUnlocked(email.trim().toLowerCase());
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="rounded-xl border-2 border-slate-900 bg-white p-5 sm:p-6">
+      <h2 className="text-lg font-semibold text-slate-900">
+        See the other {lockedCount} finding{lockedCount === 1 ? "" : "s"}
+      </h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Enter your email to unlock them. No password, no mailing list. Enlil, who built
+        Lookover, may write once to ask what you thought.
+      </p>
+      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          aria-label="Email address"
+          placeholder="you@yourcompany.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="h-11 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-base text-slate-900"
+        />
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-11 rounded-md bg-slate-900 px-5 font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          {pending ? "Unlocking…" : "Show all findings"}
+        </button>
+      </div>
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+      <p className="mt-3 text-sm text-slate-600">
+        Or{" "}
+        <Link href={signupHref} className="font-medium text-slate-900 underline underline-offset-2">
+          save them and start the free trial
+        </Link>{" "}
+        — 14 days, no card.
+      </p>
+    </form>
+  );
+}
+
+function EmailFindings({
+  drafts,
+  sample,
+  initialEmail,
+}: {
+  drafts: Draft[];
+  sample: boolean;
+  initialEmail: string;
+}) {
+  const [email, setEmail] = useState(initialEmail);
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
   const n = drafts.length;

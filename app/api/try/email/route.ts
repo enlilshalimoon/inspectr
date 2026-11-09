@@ -1,9 +1,14 @@
 // POST /api/try/email
-// Body: { email, sample?, drafts: [{ section, section_label, finding, sig }] }
+// Body: { email, sample?, unlock?, drafts: [{ section, section_label, finding, sig }] }
 //
-// Emails a /try visitor the findings the demo just drafted for them, and records
-// the address in try_leads. Only findings signed by /api/try/draft are accepted,
-// and sends are capped per visitor, per address and globally per day.
+// Records a /try visitor's address in try_leads and, unless `unlock` is set, emails
+// them the findings the demo just drafted. `unlock: true` is the soft gate on /try
+// (findings after the first show once an email is given): it saves the lead and
+// sends nothing. Only findings signed by /api/try/draft are accepted, and calls are
+// capped per visitor, per address and globally per day.
+//
+// The lead row is written before any send and its insert error is logged, so a
+// failed or slow send can't lose the lead (try_leads was empty for this reason).
 
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
@@ -75,33 +80,66 @@ export async function POST(req: NextRequest) {
     return bad(429, "That's the limit for today. Try again tomorrow.");
   }
 
-  const message = tryFindingsEmail({ drafts, appUrl: req.nextUrl.origin });
-  const result = await sendSystemEmail({ to: email, ...message });
-
   const source = parseAttribution((await cookies()).get(ATTRIBUTION_COOKIE)?.value);
   const sample = body?.sample === true;
-  await db.from("try_leads").insert({
-    visitor,
-    email,
-    source,
-    finding_count: drafts.length,
-    sample,
-    sent: result.ok,
-  });
+  const unlock = body?.unlock === true;
+  const internal = isInternalEmail(email) || email === FOUNDER_REPLY_TO;
 
-  if (!result.ok) return bad(502, "Couldn't send that just now. Try again in a minute.");
+  const { data: lead, error: insertError } = await db
+    .from("try_leads")
+    .insert({
+      visitor,
+      email,
+      source,
+      finding_count: drafts.length,
+      sample,
+      internal,
+      purpose: unlock ? "unlock" : "email",
+      sent: false,
+    })
+    .select("id")
+    .single();
+  if (insertError) console.error("[try/email] try_leads insert failed:", insertError.message);
 
-  // Tell the founder right away: this is the one person from the demo we can reach.
-  if (!isInternalEmail(email) && email !== FOUNDER_REPLY_TO) {
-    const campaign = source?.utm_campaign ?? "no campaign";
-    const summary = `${email} asked for ${drafts.length} findings from /try (${campaign}${sample ? ", sample photos" : ""}).`;
-    await sendSystemEmail({
-      to: FOUNDER_REPLY_TO,
-      subject: `New /try lead: ${email}`,
-      text: summary,
-      html: `<p>${summary.replace(/[&<>"']/g, "")}</p>`,
-    });
+  if (unlock) {
+    // The gate never blocks on our database: if the insert failed the visitor still
+    // sees their findings, and the error is in the logs above.
+    await notifyFounder(email, drafts.length, source?.utm_campaign, sample, internal, "unlocked");
+    return NextResponse.json({ ok: true });
   }
 
+  const message = tryFindingsEmail({ drafts, appUrl: req.nextUrl.origin });
+  const result = await sendSystemEmail({ to: email, ...message });
+  if (lead?.id) {
+    const { error } = await db.from("try_leads").update({ sent: result.ok }).eq("id", lead.id);
+    if (error) console.error("[try/email] try_leads sent flag failed:", error.message);
+  }
+  if (!result.ok) {
+    console.error("[try/email] findings email failed for lead", lead?.id ?? "(not saved)");
+    return bad(502, "Couldn't send that just now. Try again in a minute.");
+  }
+
+  await notifyFounder(email, drafts.length, source?.utm_campaign, sample, internal, "asked for");
   return NextResponse.json({ ok: true });
+}
+
+// Tell the founder right away: this is the one person from the demo we can reach.
+// Internal mail only (to FOUNDER_REPLY_TO); nothing goes to the visitor here.
+async function notifyFounder(
+  email: string,
+  findings: number,
+  utmCampaign: string | undefined,
+  sample: boolean,
+  internal: boolean,
+  verb: "asked for" | "unlocked",
+) {
+  if (internal) return;
+  const campaign = utmCampaign ?? "no campaign";
+  const summary = `${email} ${verb} ${findings} finding${findings === 1 ? "" : "s"} on /try (${campaign}${sample ? ", sample photos" : ""}).`;
+  await sendSystemEmail({
+    to: FOUNDER_REPLY_TO,
+    subject: `New /try lead: ${email}`,
+    text: summary,
+    html: `<p>${summary.replace(/[&<>"']/g, "")}</p>`,
+  });
 }

@@ -8,6 +8,7 @@ import { ATTRIBUTION_COOKIE, parseAttribution, type SignupSource } from "@/lib/a
 import { SIGNUP_ROLES, registrationPixelEvent, type SignupRole } from "@/lib/signup-role";
 import { fbcFromAttribution, sendCapiEvents } from "@/lib/meta/capi";
 import { isInternalEmail } from "@/lib/email/internal";
+import { TRY_VISITOR_COOKIE, cleanVisitor } from "@/lib/try/signup-link";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendSystemEmail, welcomeEmail, passwordResetEmail } from "@/lib/email/send";
@@ -104,6 +105,21 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   const origin = await originFromHeaders();
   // First-touch ad/channel attribution stamped by the proxy (see lib/attribution.ts).
   const signupSource = parseAttribution((await cookies()).get(ATTRIBUTION_COOKIE)?.value);
+  // /try handoff (lib/try/signup-link.ts): the visitor hash links this account to
+  // its try_drafts / try_leads rows; the count comes from the signup URL.
+  const tryVisitor = cleanVisitor((await cookies()).get(TRY_VISITOR_COOKIE)?.value);
+  const fromTry = formData.get("from") === "try" || !!tryVisitor;
+  const tryFindings = Number.parseInt(String(formData.get("tryFindings") ?? ""), 10);
+  const tryContext = fromTry
+    ? {
+        try_signup: {
+          ...(tryVisitor ? { visitor: tryVisitor } : {}),
+          ...(Number.isFinite(tryFindings) && tryFindings > 0 && tryFindings < 100
+            ? { findings: tryFindings }
+            : {}),
+        },
+      }
+    : {};
 
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
@@ -113,6 +129,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
         full_name: parsed.data.fullName,
         role: parsed.data.role, // lib/signup-role.ts
         ...(signupSource ? { signup_source: signupSource } : {}),
+        ...tryContext,
       },
       emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
     },

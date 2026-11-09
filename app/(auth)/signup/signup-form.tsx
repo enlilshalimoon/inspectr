@@ -16,7 +16,7 @@ import {
   registrationPixelEvent,
 } from "@/lib/signup-role";
 
-export function SignupForm() {
+export function SignupForm({ fromTry = null }: { fromTry?: { findings: number } | null }) {
   const router = useRouter();
   const [state, action, pending] = useActionState<AuthState, FormData>(signupAction, null);
 
@@ -75,6 +75,12 @@ export function SignupForm() {
 
   return (
     <form action={action} className="space-y-4">
+      {fromTry && (
+        <>
+          <input type="hidden" name="from" value="try" />
+          <input type="hidden" name="tryFindings" value={String(fromTry.findings)} />
+        </>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="fullName">Your name</Label>
         <Input id="fullName" name="fullName" autoComplete="name" required />
