@@ -3,8 +3,11 @@
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { after } from "next/server";
-import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
-import { SIGNUP_ROLES, type SignupRole } from "@/lib/signup-role";
+import { randomUUID } from "node:crypto";
+import { ATTRIBUTION_COOKIE, parseAttribution, type SignupSource } from "@/lib/attribution";
+import { SIGNUP_ROLES, registrationPixelEvent, type SignupRole } from "@/lib/signup-role";
+import { fbcFromAttribution, sendCapiEvents } from "@/lib/meta/capi";
+import { isInternalEmail } from "@/lib/email/internal";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendSystemEmail, welcomeEmail, passwordResetEmail } from "@/lib/email/send";
@@ -18,7 +21,11 @@ export type AuthState = {
   message?: string;
   next?: string; // client navigates here on success (lets the client fire pixel events first)
   role?: SignupRole; // signup only: picks the pixel event and the non-inspector note
+  events?: SignupEventIds; // signup only: set when a real account was created
 } | null;
+
+// Shared by the browser pixel and the Conversions API so Meta counts each event once.
+export type SignupEventIds = { lead: string; registration: string };
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -47,6 +54,36 @@ async function originFromHeaders(): Promise<string> {
     process.env.NEXT_PUBLIC_APP_URL ??
     "http://localhost:3000"
   );
+}
+
+// Sends the signup's Lead and registration events to the Conversions API after the
+// response, and returns their ids for the browser pixel to reuse.
+async function reportSignupEvents(
+  role: SignupRole,
+  email: string,
+  source: SignupSource | null,
+  origin: string,
+): Promise<SignupEventIds> {
+  const ids = { lead: randomUUID(), registration: randomUUID() };
+  if (isInternalEmail(email)) return ids;
+
+  const h = await headers();
+  const jar = await cookies();
+  const registration = registrationPixelEvent(role);
+  const events = [
+    { name: "Lead", eventId: ids.lead },
+    { name: registration.name, eventId: ids.registration, customData: { role } },
+  ];
+  const context = {
+    eventTime: Math.floor(Date.now() / 1000),
+    sourceUrl: h.get("referer") ?? `${origin}/signup`,
+    ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip"),
+    userAgent: h.get("user-agent"),
+    fbp: jar.get("_fbp")?.value,
+    fbc: jar.get("_fbc")?.value ?? fbcFromAttribution(source),
+  };
+  after(() => sendCapiEvents(events, context));
+  return ids;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,10 +122,16 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
 
   // If email confirmation is required, the user won't have a session yet.
   if (!data.session) {
+    // With confirmation on, Supabase answers a duplicate email with a user that has no
+    // identities instead of an error. No account was created, so report no events.
+    const created = (data.user?.identities?.length ?? 0) > 0;
     return {
       ok: true,
       message: "Check your email to confirm your account, then sign in.",
       role: parsed.data.role,
+      events: created
+        ? await reportSignupEvents(parsed.data.role, parsed.data.email, signupSource, origin)
+        : undefined,
     };
   }
 
@@ -120,7 +163,12 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   // Return success (instead of a server redirect) so the client can fire the
   // registration pixel event (CompleteRegistration for inspectors only) before
   // navigating to onboarding.
-  return { ok: true, next: "/onboarding", role: parsed.data.role };
+  return {
+    ok: true,
+    next: "/onboarding",
+    role: parsed.data.role,
+    events: await reportSignupEvents(parsed.data.role, parsed.data.email, signupSource, origin),
+  };
 }
 
 // ---------------------------------------------------------------------------
