@@ -17,9 +17,18 @@ built from inspectors' own websites and checked against TREC's public license li
   review counts. If they already advertise same-day reports, don't pitch
   "same afternoon"; say it cuts the writing time instead.
 - No prices, no "AI" in the subject, no "free for life", no attachments.
-- Each email has exactly one link: the state short link (`uselookover.com/tx`,
+- Each email has exactly one link: the state short link (`https://uselookover.com/tx`,
   `/fl`, `/go`). It lands on /try, the no-signup demo where they drop photos and
   see the written findings. Follow-ups carry the same link.
+- Links (since 2026-11-08): always the full `https://uselookover.com/<code>` —
+  never bare `uselookover.com/...` (Gmail autolinks that as `http://`, adding an
+  http→https hop), never `www.` (adds a www→apex hop), never a Google
+  `google.com/url?q=` wrapper (the Gmail connector adds one; send from the Gmail web
+  UI only). In compose, the link must be a real anchor whose href is that exact
+  https URL. Check: `curl -sIL -o /dev/null -w "%{num_redirects}"` on the URL prints 1.
+- Suppression (since 2026-11-08): never email anyone in `suppression-list.txt`
+  (case-insensitive) or anyone whose `outreach-log.json` entry has `opted_out`,
+  `bounced` or `replied_at` set. Check both before every send, including follow-ups.
 - The ask (since 2026-10-28) is "try it on your last inspection" at that link.
   It replaced the reply-with-photos offer (2026-10-26) and the video offer before
   that: 100 emails, 3 replies, all no. If someone still replies with photos, the
@@ -40,7 +49,7 @@ Hey {first_name},
 I'm Enlil, I built Lookover, an app that writes inspection findings from your
 photos. {personal_line}
 
-Quickest way to judge it: go to uselookover.com/tx, pick 10 photos from your last
+Quickest way to judge it: go to https://uselookover.com/tx, pick 10 photos from your last
 inspection, and each one comes back as a written finding in SOP language,
 grouped by section. Takes about two minutes. No signup, and the photos aren't
 saved.
@@ -70,7 +79,7 @@ Lookover
 
 Hey {first_name}, bumping this in case it got buried.
 
-If you've got two minutes between jobs: uselookover.com/tx, drop in a few photos from
+If you've got two minutes between jobs: https://uselookover.com/tx, drop in a few photos from
 any inspection and see what it writes. No signup. If report writing isn't a
 pain for you, just tell me and I'll leave you alone.
 
@@ -82,7 +91,7 @@ Enlil
 
 {first_name}, last note from me.
 
-If you ever want to see it on your own houses, uselookover.com/tx takes two minutes
+If you ever want to see it on your own houses, https://uselookover.com/tx takes two minutes
 and no signup. Either way, good luck with the rest of the season.
 
 Enlil

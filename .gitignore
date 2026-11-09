@@ -46,5 +46,6 @@ next-env.d.ts
 # outreach lead lists (contact data, keep out of git)
 /marketing/outreach/*.csv
 /marketing/outreach/*.json
+/marketing/outreach/*.txt
 /marketing/outreach/photos/
 /marketing/tracking/*.json
