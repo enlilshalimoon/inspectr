@@ -459,8 +459,8 @@ function UnlockGate({
         See the other {lockedCount} finding{lockedCount === 1 ? "" : "s"}
       </h2>
       <p className="mt-1 text-sm text-slate-600">
-        Enter your email to unlock them. No password, no mailing list. Enlil, who built
-        Lookover, may write once to ask what you thought.
+        Enter your email to unlock them. No password, no mailing list, and we won&apos;t
+        email you unless you ask.
       </p>
       <div className="mt-4 flex flex-col sm:flex-row gap-2">
         <input

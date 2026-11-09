@@ -138,7 +138,10 @@ async function notifyFounder(
   const summary = `${email} ${verb} ${findings} finding${findings === 1 ? "" : "s"} on /try (${campaign}${sample ? ", sample photos" : ""}).`;
   await sendSystemEmail({
     to: FOUNDER_REPLY_TO,
-    subject: `New /try lead: ${email}`,
+    // Unlocks get their own subject: the signup monitor's one-note follow-up keys on
+    // "New /try lead" (people who asked for an email), and unlock leads haven't been
+    // approved for any follow-up.
+    subject: verb === "unlocked" ? `New /try unlock (no follow-up): ${email}` : `New /try lead: ${email}`,
     text: summary,
     html: `<p>${summary.replace(/[&<>"']/g, "")}</p>`,
   });
