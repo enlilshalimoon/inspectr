@@ -1,7 +1,7 @@
 # Lookover — current status & handoff
 
 Living doc. Any session (cloud or local) should read this after AGENTS.md and update it before ending.
-Last updated: 2026-11-06.
+Last updated: 2026-11-08.
 
 ## Where things stand
 
@@ -17,12 +17,21 @@ Last updated: 2026-11-06.
 
 - **Signup role question (merged and live, PR #6, 2026-10-18):** signup now asks "What best describes you?" (Licensed home inspector / Inspector in training / Real estate agent / Homeowner or buyer / Other), saved to `user_metadata.role` (`lib/signup-role.ts`). Only the two inspector roles fire the Meta pixel `CompleteRegistration` (what `AS_JUL2_CompleteReg_TX_API` optimizes for); the rest fire custom `NonInspectorSignup` and see a "Lookover is built for home inspectors" note with "Continue anyway". Non-inspectors get no automatic nudges or check-in. /admin has a Role column and an "Inspectors" card. Accounts before 2026-10-18 have no role ("—") and behave as before. There is no server-side Conversions API; the pixel is browser-only. No migration. After merge: do one test signup as a homeowner on a phone and check Events Manager shows `NonInspectorSignup`, not `CompleteRegistration`.
 
-- **Pixel and signup events (PR `pixel-signup-events`, 2026-11-06, not merged or deployed):**
+- **/try → signup funnel (merged 2026-11-08, PR #8, live; migration 0008 applied):**
+  - Soft gate: the first finding back shows in full and the rest blur until the visitor enters an email (no password). Unlock saves a `try_leads` row with `purpose='unlock'` and sends the visitor nothing. If the API fails or hits a rate limit, the findings unlock anyway.
+  - Sticky "Keep these drafts — start free trial" CTA after the first finding (full-width bar on phones). It goes to `/signup?from=try&findings=N`, and signup shows "You already drafted N findings". The visitor hash rides in the httpOnly `lk_try` cookie, not the URL (the pixel reports URLs), and is saved to `user_metadata.try_signup` so drafts and leads can be joined to accounts.
+  - `try_leads` is durable: the row is written before any send and errors are logged. Migration 0008 adds `purpose` and `internal`, revokes anon/authenticated (service role only), and a trigger blocks DELETE of any row that isn't `sample` or `internal`. The Nov 3 rows were internal QA and were deleted, which is why the table read 0.
+  - Unlock leads trigger a founder note titled "New /try unlock (no follow-up)". The signup monitor's one-note follow-up keys on "New /try lead", so unlock leads get no email until Enlil approves a follow-up.
+  - New custom pixel events: `TryUnlock`, `TrySignupClick`.
+
+- **Cold-outreach links and suppression (PR #9, 2026-11-08):** the copy uses full `https://uselookover.com/tx|fl|go`, one 307 to `/try` with UTMs. Bare links got autolinked as http, which added a hop. Never send through the Gmail connector (it wraps links in google.com/url); the outreach task now stops with BLOCKED instead. The permanent suppression list is `marketing/outreach/suppression-list.txt`. It is gitignored because the repo is public. 27 addresses as of Nov 8 (STOP, no-thanks, hard bounces), all also flagged `opted_out` / `suppressed` in `outreach-log.json`. The cold-outreach task checks both before every send.
+
+- **Pixel and signup events (merged 2026-11-08, PR #7, live):**
   - `Lead` now fires only after signup succeeds, not on submit, so failed signups no longer count (`app/(auth)/signup/signup-form.tsx`). It still fires for every role; only `CompleteRegistration` is limited to inspectors.
   - The initial `PageView` no longer fires twice (`components/MetaPixel.tsx`).
   - Signup sends `Lead` and the registration event to the Conversions API after the response (`lib/meta/capi.ts`, `lib/auth/actions.ts`). The server creates the event ids and the browser pixel reuses them, so Meta dedupes. Internal test emails are skipped.
   - `/pricing` is a new public page using the existing pricing section (`app/pricing/page.tsx`). There was no page before, only `/#pricing`.
-  - **Open after merge:** add `META_CAPI_ACCESS_TOKEN` in Vercel, or server events stay off (browser events still work). Then check both events in Events Manager > Test Events with `META_CAPI_TEST_EVENT_CODE`, and confirm they show as deduplicated.
+  - **Open:** add `META_CAPI_ACCESS_TOKEN` in Vercel (not set as of 2026-11-08; CAPI is a verified no-op without it), or server events stay off (browser events still work). Then check both events in Events Manager > Test Events with `META_CAPI_TEST_EVENT_CODE`, and confirm they show as deduplicated.
   - **Open decision:** server events send IP, browser, page, `_fbp` and `_fbc` only. Hashed email would improve Meta's match rate, but the privacy policy doesn't disclose it, so that needs a policy update first.
 
 - **Texas TREC REI 7-6 report (merged and live, PR #4; migration 0005 applied 2026-10-16):** TX-licensed inspectors get TREC's promulgated form as their PDF. A "Texas TREC form" panel on the Review tab sets I / NI / NP / D per item; items with an approved finding are pre-checked I + D. Finalize is blocked until every item has a box. Details and fidelity gaps are in `docs/trec-rei-7-6.md`.
