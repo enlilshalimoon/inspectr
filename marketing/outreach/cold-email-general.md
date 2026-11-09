@@ -1,7 +1,7 @@
 # Cold email — home inspectors in other states (not TX or FL)
 
 Same rules, footer, cadence and logging as `cold-email-texas.md`. Used for any
-`leads-<state>-*.csv` file whose state isn't TX or FL. Link: `uselookover.com/go`
+`leads-<state>-*.csv` file whose state isn't TX or FL. Link: `https://uselookover.com/go`
 (redirects to the /try demo with utm_campaign=states_oct26). Lookover's report includes a full
 systems inventory plus state-specific statements for NC, VA, PA, WI and KY
 (`lib/compliance/state-rules.ts`). Only mention a state rule if it's in that file.
@@ -17,7 +17,7 @@ Hey {first_name},
 I'm Enlil, I built Lookover, an app that writes inspection findings from your
 photos. {personal_line}
 
-Quickest way to judge it: go to uselookover.com/go, pick 10 photos from your last
+Quickest way to judge it: go to https://uselookover.com/go, pick 10 photos from your last
 inspection, and each one comes back as a written finding in SOP language,
 grouped by section. Takes about two minutes. No signup, and the photos aren't
 saved.
@@ -34,4 +34,4 @@ Lookover
 
 ## Email 2 (day 3) and Email 3 (day 8)
 
-Same as `cold-email-florida.md`, with uselookover.com/go in place of uselookover.com/fl.
+Same as `cold-email-florida.md`, with https://uselookover.com/go in place of https://uselookover.com/fl.

@@ -16,7 +16,7 @@ Hey {first_name},
 I'm Enlil, I built Lookover, an app that writes inspection findings from your
 photos. {personal_line}
 
-Quickest way to judge it: go to uselookover.com/fl, pick 10 photos from your last
+Quickest way to judge it: go to https://uselookover.com/fl, pick 10 photos from your last
 inspection, and each one comes back as a written finding in SOP language,
 grouped by section. Takes about two minutes. No signup, and the photos aren't
 saved.
@@ -45,7 +45,7 @@ Lookover
 
 Hey {first_name}, bumping this in case it got buried.
 
-If you've got two minutes between jobs: uselookover.com/fl, drop in a few photos from
+If you've got two minutes between jobs: https://uselookover.com/fl, drop in a few photos from
 any inspection and see what it writes. No signup. If report writing isn't a
 pain for you, just tell me and I'll leave you alone.
 
@@ -57,7 +57,7 @@ Enlil
 
 {first_name}, last note from me.
 
-If you ever want to see it on your own houses, uselookover.com/fl takes two minutes
+If you ever want to see it on your own houses, https://uselookover.com/fl takes two minutes
 and no signup. Either way, good luck with the rest of the season.
 
 Enlil
