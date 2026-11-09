@@ -2,8 +2,9 @@
 // Body: multipart form with one "photo" file.
 //
 // The public /try demo: no account, no storage. Runs the same two AI stages as
-// /api/ai/process-photo (vision, then finding draft) on the uploaded bytes and
-// returns the finding. The photo is never saved; one row per draft goes into
+// /api/ai/process-photo (vision, then finding drafts) on the uploaded bytes and
+// returns the findings: one per distinct defect in the photo, each in its own
+// section and individually signed. The photo is never saved; one row per draft goes into
 // try_drafts for rate limiting and counting.
 //
 // Every call costs two paid model calls, so it's capped per visitor (IP hash)
@@ -12,7 +13,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/server";
-import { analyzeImageBytes, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
+import { analyzeImageBytes, draftFindings, UnsupportedImageError } from "@/lib/ai/anthropic";
 import { resolveSectionType } from "@/lib/inspection/photos";
 import { labelForSection } from "@/lib/supabase/sections";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
@@ -69,10 +70,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "vision failed", message }, { status: 502 });
   }
 
-  const section = resolveSectionType(vision.section) ?? "interior";
-  let finding;
+  const photoSection = resolveSectionType(vision.section) ?? "interior";
+  let findings;
   try {
-    finding = await draftFinding({ section, vision_analysis: vision, transcript: "" });
+    findings = await draftFindings({ section: photoSection, vision_analysis: vision, transcript: "" });
   } catch (err) {
     console.error("[try] draft failed:", err);
     return NextResponse.json(
@@ -85,29 +86,37 @@ export async function POST(req: NextRequest) {
   // inspectors trying their own photos.
   const source = await firstTouch();
   const sample = form?.get("sample") === "1";
+  // One row per photo (rate limits count model calls, not findings), recording
+  // the lead finding.
+  const lead = findings[0];
   await db.from("try_drafts").insert({
     visitor,
     source: sample ? { ...(source ?? {}), sample: true } : source,
-    section,
-    severity: finding.severity,
-    title: finding.title?.slice(0, 200),
+    section: lead.section,
+    severity: lead.severity,
+    title: lead.title?.slice(0, 200),
   });
 
-  const draft = {
-    section,
-    section_label: labelForSection(section),
-    finding: {
-      severity: finding.severity,
-      title: finding.title,
-      description: finding.description,
-      recommended_action: finding.recommended_action,
-    },
-  };
+  const drafts = findings.map((f) => {
+    const draft = {
+      section: f.section,
+      section_label: labelForSection(f.section),
+      finding: {
+        severity: f.severity,
+        title: f.title,
+        description: f.description,
+        recommended_action: f.recommended_action,
+      },
+    };
+    // Lets /api/try/email check it's only sending findings we drafted.
+    return { ...draft, sig: signFinding(draft) };
+  });
 
   const res = NextResponse.json({
-    ...draft,
-    // Lets /api/try/email check it's only sending findings we drafted.
-    sig: signFinding(draft),
+    // Top level is the first draft, as before; `drafts` holds every defect
+    // found in the photo (first included).
+    ...drafts[0],
+    drafts,
     equipment: vision.equipment_data ?? null,
   });
   // Lets signup link the new account to this demo run (lib/try/signup-link.ts).

@@ -6,12 +6,18 @@ import { createClient } from "@/lib/supabase/server";
 import { renderInspectionPdf } from "@/lib/pdf/render";
 import { sendFounderEmail, firstInspectionFeedbackEmail } from "@/lib/email/send";
 import { withDismissed } from "@/lib/inspection/photos";
+import {
+  SPLIT_DESCRIPTION,
+  SPLIT_TITLE,
+  isSplitPlaceholder,
+  mergeFindingText,
+} from "@/lib/ai/multi-defect";
 import { finalizedStatus, isFirstFinalize, isLockedStatus, lockError, LOCKED_MESSAGE } from "@/lib/inspection/lock";
 import { loadTrecStatus } from "@/lib/trec/load";
 import { containsCostEstimate } from "@/lib/trec/form";
 import { findOrCreateSection } from "@/lib/inspection/sections-db";
 import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
-import type { SectionType } from "@/lib/supabase/types";
+import type { SectionType, Severity } from "@/lib/supabase/types";
 import {
   SYSTEM_STATUSES,
   encodeNotesFallback,
@@ -152,6 +158,16 @@ export async function setFindingApproved(input: z.infer<typeof approveSchema>): 
   const supabase = await createClient();
   const locked = await lockError(supabase, { findingId: parsed.data.finding_id });
   if (locked) return { ok: false, error: locked };
+  if (parsed.data.approved) {
+    const { data: f } = await supabase
+      .from("findings")
+      .select("title, description")
+      .eq("id", parsed.data.finding_id)
+      .maybeSingle();
+    if (f && isSplitPlaceholder(f)) {
+      return { ok: false, error: "Write this finding (title and description) before approving it." };
+    }
+  }
   const { error } = await supabase
     .from("findings")
     .update({ is_approved: parsed.data.approved })
@@ -179,7 +195,10 @@ export async function approveAllInSection(
   let q = supabase
     .from("findings")
     .update({ is_approved: true })
-    .eq("inspection_id", parsed.data.inspection_id);
+    .eq("inspection_id", parsed.data.inspection_id)
+    // A split-off finding still holding placeholder text needs writing first.
+    .neq("title", SPLIT_TITLE)
+    .neq("description", SPLIT_DESCRIPTION);
   q = parsed.data.section_id ? q.eq("section_id", parsed.data.section_id) : q.is("section_id", null);
   const { error } = await q;
 
@@ -574,7 +593,15 @@ export async function deleteFinding(input: z.infer<typeof deleteSchema>): Promis
   if (error) return { ok: false, error: error.message };
 
   // Mark the photo so Capture doesn't quietly draft it again next time it opens.
-  if (finding?.photo_id) {
+  // Only once its last finding is gone: a photo that showed two defects keeps
+  // the other one, and isn't "dismissed".
+  const { count: remaining } = finding?.photo_id
+    ? await supabase
+        .from("findings")
+        .select("id", { count: "exact", head: true })
+        .eq("photo_id", finding.photo_id)
+    : { count: 0 };
+  if (finding?.photo_id && !remaining) {
     const { data: photo } = await supabase
       .from("photos")
       .select("ai_analysis")
@@ -587,6 +614,108 @@ export async function deleteFinding(input: z.infer<typeof deleteSchema>): Promis
         .eq("id", finding.photo_id);
     }
   }
+  revalidatePath(`/inspections/${parsed.data.inspection_id}/review`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// One photo, several defects. The AI drafts one finding per distinct defect;
+// these let the inspector fix its call before approving: merge two drafts that
+// are really one issue, or split off a defect the AI missed.
+// ---------------------------------------------------------------------------
+
+const mergeSchema = z.object({
+  inspection_id: z.string().uuid(),
+  keep_id: z.string().uuid(),
+  merge_id: z.string().uuid(),
+});
+
+// Folds merge_id into keep_id (both descriptions and actions, higher severity,
+// keep_id's title and section) and deletes merge_id. Only for findings from the
+// same photo that aren't approved yet; the result needs approving again.
+export async function mergeFindings(input: z.infer<typeof mergeSchema>): Promise<ActionResult> {
+  const parsed = mergeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const { inspection_id, keep_id, merge_id } = parsed.data;
+  if (keep_id === merge_id) return { ok: false, error: "Pick a different finding to merge with." };
+
+  const supabase = await createClient();
+  const locked = await lockError(supabase, { inspectionId: inspection_id });
+  if (locked) return { ok: false, error: locked };
+
+  const { data: rows } = await supabase
+    .from("findings")
+    .select("id, inspection_id, photo_id, severity, title, description, recommended_action, is_approved")
+    .in("id", [keep_id, merge_id]);
+  const keep = rows?.find((r) => r.id === keep_id);
+  const other = rows?.find((r) => r.id === merge_id);
+  if (!keep || !other) return { ok: false, error: "Finding not found." };
+  if (keep.inspection_id !== inspection_id || other.inspection_id !== inspection_id) {
+    return { ok: false, error: "Finding not found." };
+  }
+  if (!keep.photo_id || keep.photo_id !== other.photo_id) {
+    return { ok: false, error: "Only findings from the same photo can be merged." };
+  }
+  if (keep.is_approved || other.is_approved) {
+    return { ok: false, error: "Unapprove both findings before merging them." };
+  }
+
+  const merged = mergeFindingText(
+    { ...keep, severity: keep.severity as Severity },
+    { ...other, severity: other.severity as Severity },
+  );
+  const { error } = await supabase
+    .from("findings")
+    .update({ ...merged, inspector_edited: true, is_approved: false })
+    .eq("id", keep_id);
+  if (error) return { ok: false, error: error.message };
+  const { error: delErr } = await supabase.from("findings").delete().eq("id", merge_id);
+  if (delErr) return { ok: false, error: delErr.message };
+
+  revalidatePath(`/inspections/${inspection_id}/review`);
+  return { ok: true };
+}
+
+const splitSchema = z.object({
+  inspection_id: z.string().uuid(),
+  finding_id: z.string().uuid(),
+});
+
+// Adds a second finding on the same photo and section, unapproved, for a defect
+// the AI didn't list separately. It holds placeholder text the inspector must
+// replace before it can be approved (setFindingApproved checks).
+export async function splitFinding(input: z.infer<typeof splitSchema>): Promise<ActionResult> {
+  const parsed = splitSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+
+  const supabase = await createClient();
+  const locked = await lockError(supabase, { findingId: parsed.data.finding_id });
+  if (locked) return { ok: false, error: locked };
+
+  const { data: src } = await supabase
+    .from("findings")
+    .select("inspection_id, section_id, photo_id, severity")
+    .eq("id", parsed.data.finding_id)
+    .maybeSingle();
+  if (!src || src.inspection_id !== parsed.data.inspection_id) {
+    return { ok: false, error: "Finding not found." };
+  }
+  if (!src.photo_id) return { ok: false, error: "This finding has no photo to split." };
+
+  const { error } = await supabase.from("findings").insert({
+    inspection_id: src.inspection_id,
+    section_id: src.section_id,
+    photo_id: src.photo_id,
+    severity: src.severity,
+    title: SPLIT_TITLE,
+    description: SPLIT_DESCRIPTION,
+    recommended_action: null,
+    is_approved: false,
+    // Hand-made: a voice-note regenerate must never replace it.
+    inspector_edited: true,
+  });
+  if (error) return { ok: false, error: error.message };
+
   revalidatePath(`/inspections/${parsed.data.inspection_id}/review`);
   return { ok: true };
 }

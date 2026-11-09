@@ -42,6 +42,8 @@ type Item = {
   status: "working" | "done" | "error";
   draft?: Draft;
   error?: string;
+  // A second (third…) defect from the same photo as an earlier item.
+  extra?: boolean;
 };
 
 export function TryClient() {
@@ -56,6 +58,9 @@ export function TryClient() {
   const [freeId, setFreeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tracked = useRef(false);
+
+  // Photos, not findings: one photo can come back as several findings.
+  const photoCount = items.filter((i) => !i.extra).length;
 
   const update = useCallback((id: string, patch: Partial<Item>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -79,7 +84,22 @@ export function TryClient() {
           update(id, { status: "error", error: data?.message ?? "Couldn't draft this one." });
           return;
         }
-        update(id, { status: "done", draft: data as Draft });
+        // One photo can show several defects: the first draft fills this card,
+        // each further one gets its own card with the same photo.
+        const drafts: Draft[] = Array.isArray(data.drafts) && data.drafts.length ? data.drafts : [data as Draft];
+        setItems((prev) =>
+          prev.flatMap((it) =>
+            it.id !== id
+              ? [it]
+              : drafts.map((draft, i) => ({
+                  ...it,
+                  id: i === 0 ? id : `${id}-${i}`,
+                  extra: i > 0,
+                  status: "done" as const,
+                  draft,
+                })),
+          ),
+        );
         setFreeId((prev) => prev ?? id);
         if (!tracked.current) {
           tracked.current = true;
@@ -95,7 +115,7 @@ export function TryClient() {
   const onFiles = useCallback(
     async (list: FileList | File[] | null) => {
       if (!list?.length) return;
-      const room = MAX_PHOTOS - items.length;
+      const room = MAX_PHOTOS - photoCount;
       const files = Array.from(list)
         .filter((f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name))
         .slice(0, Math.max(0, room));
@@ -120,7 +140,7 @@ export function TryClient() {
       };
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queued.length) }, worker));
     },
-    [items.length, run],
+    [photoCount, run],
   );
 
   const onSamples = useCallback(async () => {
@@ -192,7 +212,7 @@ export function TryClient() {
         }}
       />
 
-      {items.length < MAX_PHOTOS && !limitHit && (
+      {photoCount < MAX_PHOTOS && !limitHit && (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -208,7 +228,7 @@ export function TryClient() {
           </span>
           <span className="mt-1 block text-sm text-slate-500">
             {items.length
-              ? `${MAX_PHOTOS - items.length} more allowed`
+              ? `${MAX_PHOTOS - photoCount} more allowed`
               : "From your camera roll or computer · up to 15"}
           </span>
         </button>
@@ -239,7 +259,7 @@ export function TryClient() {
 
       {items.length > 0 && (
         <div className="mt-6 flex flex-wrap gap-2">
-          {items.map((it) => (
+          {items.filter((it) => !it.extra).map((it) => (
             <div key={it.id} className="relative h-16 w-16 overflow-hidden rounded-md ring-1 ring-slate-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={it.preview} alt="" className="h-full w-full object-cover" />

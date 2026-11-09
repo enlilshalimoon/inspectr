@@ -10,9 +10,9 @@ import {
   buildFindingUserPrompt,
   buildVisionUserPrompt,
   type FindingPromptInput,
-  type FindingPromptOutput,
   type VisionAnalysis,
 } from "./prompts";
+import { normalizeDrafts, type DraftedFinding } from "./multi-defect";
 
 function client() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -144,12 +144,14 @@ export async function analyzeImageBytes(
 }
 
 // ---------------------------------------------------------------------------
-// Finding generation from vision + transcript.
+// Finding generation from vision + transcript. One photo can show several
+// distinct defects, so this returns a list: one deduped draft per defect, each
+// filed into its own section (see lib/ai/multi-defect.ts).
 // ---------------------------------------------------------------------------
-export async function draftFinding(input: FindingPromptInput): Promise<FindingPromptOutput> {
+export async function draftFindings(input: FindingPromptInput): Promise<DraftedFinding[]> {
   const reply = await client().messages.create({
     model: DRAFTING_MODEL,
-    max_tokens: 800,
+    max_tokens: 2000,
     system: FINDING_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildFindingUserPrompt(input) }],
   });
@@ -159,5 +161,7 @@ export async function draftFinding(input: FindingPromptInput): Promise<FindingPr
     .map((b) => (b as { type: "text"; text: string }).text)
     .join("");
 
-  return JSON.parse(stripJsonFence(text)) as FindingPromptOutput;
+  const drafts = normalizeDrafts(JSON.parse(stripJsonFence(text)), input.section);
+  if (!drafts.length) throw new Error("draft returned no usable findings");
+  return drafts;
 }
