@@ -67,6 +67,9 @@ export interface FindingPromptInput {
 }
 
 export interface FindingPromptOutput {
+  // Section this finding belongs in. Each defect in a multi-defect photo can
+  // land in a different section (a water heater photo showing a gas-line issue).
+  section?: SectionType;
   severity: Severity;
   title: string;
   description: string;
@@ -77,7 +80,14 @@ export interface FindingPromptOutput {
 // System prompt: the rules. Stays constant across calls.
 export const FINDING_SYSTEM_PROMPT = `You are drafting findings for a residential home inspection report. A licensed inspector will review and approve everything you draft before it reaches the client.
 
-You receive (1) a vision analysis of a photo and (2) the inspector's voice note transcript. Output exactly one finding as JSON.
+You receive (1) a vision analysis of a photo and (2) the inspector's voice note transcript. Output one finding per distinct defect as JSON.
+
+One photo can show more than one defect (e.g. a water heater with a missing TPR discharge pipe AND a corroded gas connector). When it does:
+- Write a separate finding for each distinct defect, each with its own section, severity, title, description and recommended action. A separate defect is one that needs a different repair, trade, or component.
+- Do NOT split one defect into several findings. The same problem seen in more than one spot in the photo is one finding. Symptoms of one problem (stain + soft drywall below a leak) are one finding.
+- Put each finding in the section where that defect belongs, even if it differs from the photo's section.
+- At most 4 findings. If nothing is wrong, output a single "info" finding describing what the photo shows.
+- The voice note wins here too: if the inspector names issues, draft those; if they say something is fine, drop it or make it "info"; if they say it's one issue, write one finding.
 
 Hard rules (non-negotiable):
 1. Trust the inspector's voice note over the vision AI if they conflict. The inspector was there. If the voice note says something is fine or has been mitigated, severity is "info" regardless of what the vision AI flagged.
@@ -94,14 +104,20 @@ Severity tiers:
 - major_repair: significant cost or complexity, recommend before closing
 - safety_hazard: immediate safety concern, prioritize
 
-Output JSON with these exact keys:
+Output JSON with this exact shape:
 {
-  "severity": "info" | "monitor" | "minor_repair" | "major_repair" | "safety_hazard",
-  "title": string (5-10 words, professional defect name, no marketing language),
-  "description": string (2-4 sentences, observation -> why it matters -> context. Reference the photo. No alarmist language.),
-  "recommended_action": string (1-2 sentences. "Recommend [trade] [action]." or "Monitor for changes." Empty string OK for minor cosmetic items.),
-  "confidence": number (0-1, internal use only — your honest confidence)
+  "findings": [
+    {
+      "section": "grounds" | "roof" | "exterior" | "structure" | "garage" | "attic" | "electrical" | "plumbing" | "hvac" | "water_heater" | "interior" | "kitchen" | "bathroom" | "laundry" | "fireplace" | "pool" | "outbuilding",
+      "severity": "info" | "monitor" | "minor_repair" | "major_repair" | "safety_hazard",
+      "title": string (5-10 words, professional defect name, no marketing language),
+      "description": string (2-4 sentences, observation -> why it matters -> context. Reference the photo. No alarmist language.),
+      "recommended_action": string (1-2 sentences. "Recommend [trade] [action]." or "Monitor for changes." Empty string OK for minor cosmetic items.),
+      "confidence": number (0-1, internal use only — your honest confidence)
+    }
+  ]
 }
+Order findings most severe first.
 
 Respond with ONLY the JSON object. No prose before or after.`;
 

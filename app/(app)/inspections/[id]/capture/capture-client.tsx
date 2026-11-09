@@ -40,6 +40,8 @@ export type CapturePhoto = {
     severity: Severity;
     title: string;
   } | null;
+  // Findings beyond `finding` drafted from this same photo (one per defect).
+  more_findings?: number;
   voice?: {
     state: "idle" | "recording" | "uploading" | "transcribing" | "done" | "failed";
     transcript?: string;
@@ -203,6 +205,7 @@ export function CaptureClient({ inspectionId, userId, sections, initialPhotos }:
       patchPhoto(photoId, {
         ai_status: json.dismissed ? "dismissed" : "drafted",
         finding: json.finding ?? null,
+        more_findings: Math.max(0, (json.findings?.length ?? 1) - 1),
         aiErrorMessage: undefined,
       });
     } catch (err) {
@@ -830,6 +833,11 @@ function PhotoCard({
               </Link>
             </div>
             <p className="text-sm font-medium text-slate-900">{photo.finding.title}</p>
+            {!!photo.more_findings && (
+              <p className="text-xs text-slate-500">
+                + {photo.more_findings} more issue{photo.more_findings === 1 ? "" : "s"} in this photo
+              </p>
+            )}
           </div>
         )}
       </CardContent>

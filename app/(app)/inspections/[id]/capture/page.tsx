@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { severityRank } from "@/lib/ai/multi-defect";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { isLockedStatus } from "@/lib/inspection/lock";
@@ -90,7 +91,11 @@ export default async function CapturePage({ params }: Props) {
     findings?: { id: string; severity: Severity; title: string }[] | null;
   };
   const photos: CapturePhoto[] = ((photoRows ?? []) as unknown as RowWithFindings[]).map((p) => {
-    const finding = p.findings?.[0] ?? null;
+    // A photo showing several defects has several findings; lead with the worst.
+    const sorted = [...(p.findings ?? [])].sort(
+      (a, b) => severityRank(b.severity) - severityRank(a.severity),
+    );
+    const finding = sorted[0] ?? null;
     return {
       id: p.id,
       section_id: p.section_id ?? null,
@@ -103,6 +108,7 @@ export default async function CapturePage({ params }: Props) {
           ? ("dismissed" as const)
           : ("idle" as const),
       finding: finding ? { id: finding.id, severity: finding.severity, title: finding.title } : null,
+      more_findings: Math.max(0, sorted.length - 1),
       voice: { state: "idle" as const },
     };
   });
