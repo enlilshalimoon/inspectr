@@ -2,15 +2,20 @@
 //
 // Vision model: claude-haiku-4-5 (cheap, fast, good enough for per-photo triage)
 // Drafting model: claude-sonnet-4-6 (better prose + severity judgment)
+// Photo-finding model (/try demo, one step, sees the photo): drafting model by default
 
 import Anthropic from "@anthropic-ai/sdk";
 import {
   FINDING_SYSTEM_PROMPT,
+  PHOTO_FINDING_SYSTEM_PROMPT,
+  PHOTO_FINDING_USER_PROMPT,
   VISION_SYSTEM_PROMPT,
   buildFindingUserPrompt,
   buildVisionUserPrompt,
+  parsePhotoFinding,
   type FindingPromptInput,
   type FindingPromptOutput,
+  type PhotoFindingOutput,
   type VisionAnalysis,
 } from "./prompts";
 
@@ -22,6 +27,7 @@ function client() {
 
 const VISION_MODEL = process.env.ANTHROPIC_VISION_MODEL ?? "claude-haiku-4-5-20251001";
 const DRAFTING_MODEL = process.env.ANTHROPIC_DRAFTING_MODEL ?? "claude-sonnet-4-6";
+const PHOTO_FINDING_MODEL = process.env.ANTHROPIC_PHOTO_FINDING_MODEL ?? DRAFTING_MODEL;
 
 function stripJsonFence(text: string): string {
   return text
@@ -141,6 +147,38 @@ export async function analyzeImageBytes(
     .join("");
 
   return JSON.parse(stripJsonFence(text)) as VisionAnalysis;
+}
+
+// ---------------------------------------------------------------------------
+// One step: the model that writes the finding looks at the photo itself
+// (public /try demo). See PHOTO_FINDING_SYSTEM_PROMPT for why.
+// ---------------------------------------------------------------------------
+export async function draftFindingFromImage(buf: Buffer): Promise<PhotoFindingOutput> {
+  const mediaType = sniffMediaType(buf);
+  if (!mediaType) throw new UnsupportedImageError(unsupportedImageMessage(buf));
+
+  const reply = await client().messages.create({
+    model: PHOTO_FINDING_MODEL,
+    max_tokens: 1200,
+    system: PHOTO_FINDING_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: buf.toString("base64") } },
+          { type: "text", text: PHOTO_FINDING_USER_PROMPT },
+        ],
+      },
+    ],
+  });
+  if (reply.stop_reason === "max_tokens") throw new Error("photo finding reply was cut off at max_tokens");
+
+  const text = reply.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as { type: "text"; text: string }).text)
+    .join("");
+
+  return parsePhotoFinding(text);
 }
 
 // ---------------------------------------------------------------------------
