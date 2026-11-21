@@ -42,6 +42,10 @@ next-env.d.ts
 
 # benchmark run output — regenerable, often large
 /db/benchmark/results/
+/db/try-eval/results/
+
+# inspector photos for the /try eval: never commit (public repo)
+/db/try-eval/local/
 
 # outreach lead lists (contact data, keep out of git)
 /marketing/outreach/*.csv
