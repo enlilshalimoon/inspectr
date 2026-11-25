@@ -21,7 +21,8 @@ import { verifyFinding, visitorHash, type SignedFinding } from "@/lib/try/sign";
 const PER_VISITOR_PER_DAY = 5;
 const PER_EMAIL_PER_DAY = 3;
 const GLOBAL_PER_DAY = 100;
-const MAX_FINDINGS = 15;
+// 15 photos, up to 4 findings each (one per defect in the photo).
+const MAX_FINDINGS = 60;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function bad(status: number, message: string) {

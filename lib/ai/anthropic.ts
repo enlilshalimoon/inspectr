@@ -2,17 +2,22 @@
 //
 // Vision model: claude-haiku-4-5 (cheap, fast, good enough for per-photo triage)
 // Drafting model: claude-sonnet-4-6 (better prose + severity judgment)
+// Photo-finding model (/try demo, one step, sees the photo): drafting model by default
 
 import Anthropic from "@anthropic-ai/sdk";
 import {
   FINDING_SYSTEM_PROMPT,
+  PHOTO_FINDING_SYSTEM_PROMPT,
+  PHOTO_FINDING_USER_PROMPT,
   VISION_SYSTEM_PROMPT,
   buildFindingUserPrompt,
   buildVisionUserPrompt,
+  parsePhotoFindings,
   type FindingPromptInput,
-  type FindingPromptOutput,
+  type PhotoFindingsOutput,
   type VisionAnalysis,
 } from "./prompts";
+import { normalizeDrafts, type DraftedFinding } from "./multi-defect";
 
 function client() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -22,6 +27,7 @@ function client() {
 
 const VISION_MODEL = process.env.ANTHROPIC_VISION_MODEL ?? "claude-haiku-4-5-20251001";
 const DRAFTING_MODEL = process.env.ANTHROPIC_DRAFTING_MODEL ?? "claude-sonnet-4-6";
+const PHOTO_FINDING_MODEL = process.env.ANTHROPIC_PHOTO_FINDING_MODEL ?? DRAFTING_MODEL;
 
 function stripJsonFence(text: string): string {
   return text
@@ -144,12 +150,64 @@ export async function analyzeImageBytes(
 }
 
 // ---------------------------------------------------------------------------
-// Finding generation from vision + transcript.
+// One step: the model that writes the findings looks at the photo itself
+// (public /try demo). See PHOTO_FINDING_SYSTEM_PROMPT. Returns one draft per
+// distinct defect, or a single no_defect / unclear draft.
+//
+// `create` is the Anthropic messages call. Tests pass a fake so they can prove
+// the photo bytes are in the request without a live key.
 // ---------------------------------------------------------------------------
-export async function draftFinding(input: FindingPromptInput): Promise<FindingPromptOutput> {
+export type PhotoModelReply = {
+  stop_reason: string | null;
+  content: { type: string; text?: string }[];
+};
+
+export type PhotoModelCreate = (
+  params: Anthropic.MessageCreateParamsNonStreaming,
+) => Promise<PhotoModelReply>;
+
+export async function draftFindingsFromImage(
+  buf: Buffer,
+  create: PhotoModelCreate = (params) => client().messages.create(params),
+): Promise<PhotoFindingsOutput> {
+  const mediaType = sniffMediaType(buf);
+  if (!mediaType) throw new UnsupportedImageError(unsupportedImageMessage(buf));
+
+  const reply = await create({
+    model: PHOTO_FINDING_MODEL,
+    max_tokens: 2400,
+    // Low temperature: inspection drafts should not embellish an intact surface.
+    temperature: 0,
+    system: PHOTO_FINDING_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: buf.toString("base64") } },
+          { type: "text", text: PHOTO_FINDING_USER_PROMPT },
+        ],
+      },
+    ],
+  });
+  if (reply.stop_reason === "max_tokens") throw new Error("photo finding reply was cut off at max_tokens");
+
+  const text = reply.content
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text ?? "")
+    .join("");
+
+  return parsePhotoFindings(text);
+}
+
+// ---------------------------------------------------------------------------
+// Finding generation from vision + transcript. Capture still uses this: the
+// drafting model does not see the photo. One photo can show several distinct
+// defects, so this returns a list (see lib/ai/multi-defect.ts).
+// ---------------------------------------------------------------------------
+export async function draftFindings(input: FindingPromptInput): Promise<DraftedFinding[]> {
   const reply = await client().messages.create({
     model: DRAFTING_MODEL,
-    max_tokens: 800,
+    max_tokens: 2000,
     system: FINDING_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildFindingUserPrompt(input) }],
   });
@@ -159,5 +217,7 @@ export async function draftFinding(input: FindingPromptInput): Promise<FindingPr
     .map((b) => (b as { type: "text"; text: string }).text)
     .join("");
 
-  return JSON.parse(stripJsonFence(text)) as FindingPromptOutput;
+  const drafts = normalizeDrafts(JSON.parse(stripJsonFence(text)), input.section);
+  if (!drafts.length) throw new Error("draft returned no usable findings");
+  return drafts;
 }

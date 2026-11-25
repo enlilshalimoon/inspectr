@@ -11,6 +11,8 @@ import {
   Mic,
   Square,
   Sparkles,
+  Scissors,
+  Combine,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SEVERITY_COLOR, SEVERITY_LABEL } from "@/lib/utils/severity";
@@ -19,7 +21,9 @@ import type { Finding, SectionType, Severity } from "@/lib/supabase/types";
 import { STANDARD_SECTIONS } from "@/lib/supabase/sections";
 import {
   deleteFinding,
+  mergeFindings,
   setFindingApproved,
+  splitFinding,
   updateFinding,
   type ActionResult,
 } from "./actions";
@@ -49,9 +53,18 @@ type Props = {
   photoUrl?: string | null;
   // Section the finding is filed under; editing can move it.
   sectionType: SectionType;
+  // Other findings drafted from the same photo (one photo, several defects).
+  siblings?: { id: string; title: string; is_approved: boolean }[];
 };
 
-export function EditableFindingCard({ finding, inspectionId, userId, photoUrl, sectionType }: Props) {
+export function EditableFindingCard({
+  finding,
+  inspectionId,
+  userId,
+  photoUrl,
+  sectionType,
+  siblings = [],
+}: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -127,6 +140,22 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl, s
     if (!confirm("Remove this finding from the report? The photo stays in the inspection but won't appear in the report.")) return;
     handle(deleteFinding({ finding_id: finding.id, inspection_id: inspectionId }));
   }
+
+  // Another defect in the same photo that the AI didn't list on its own.
+  function split() {
+    handle(splitFinding({ finding_id: finding.id, inspection_id: inspectionId }));
+  }
+
+  // Two drafts from one photo that are really the same issue: fold that one
+  // into this one.
+  function mergeFrom(otherId: string) {
+    if (!otherId) return;
+    const other = siblings.find((s) => s.id === otherId);
+    if (!confirm(`Merge "${other?.title ?? "that finding"}" into this one? Its text is added here and it is removed.`)) return;
+    handle(mergeFindings({ inspection_id: inspectionId, keep_id: finding.id, merge_id: otherId }));
+  }
+
+  const mergeable = siblings.filter((s) => !s.is_approved);
 
   // -------------------------------------------------------------------------
   // Voice comment + regenerate
@@ -405,6 +434,46 @@ export function EditableFindingCard({ finding, inspectionId, userId, photoUrl, s
               ))}
             </select>
           </label>
+        )}
+
+        {/* One photo, several defects: split off another, or merge drafts that
+            are the same issue. Only before approval. */}
+        {!editing && finding.photo_id && !finding.is_approved && (
+          <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500">
+            {siblings.length > 0 && (
+              <span>
+                Same photo as {siblings.length} other finding{siblings.length === 1 ? "" : "s"}.
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={split}
+              disabled={pending}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              title="Add another finding from this photo"
+            >
+              <Scissors className="h-3 w-3" /> Another issue in photo
+            </button>
+            {mergeable.length > 0 && (
+              <label className="inline-flex items-center gap-1">
+                <Combine className="h-3 w-3" />
+                <select
+                  value=""
+                  onChange={(e) => mergeFrom(e.target.value)}
+                  disabled={pending}
+                  className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+                  aria-label="Merge another finding from this photo into this one"
+                >
+                  <option value="">Merge into this…</option>
+                  {mergeable.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
         )}
 
         {error && <div className="text-xs text-red-700">{error}</div>}

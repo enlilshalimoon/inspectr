@@ -2,10 +2,6 @@
 // decode (HEIC included, on Safari), downscale and re-encode to JPEG so the
 // vision model can read it and uploads stay small. Browser-only (canvas).
 
-// Media types Claude's vision API accepts. Anything else has to be transcoded
-// before upload or the analysis will fail server-side.
-const CLAUDE_READABLE = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
 // Longest edge we keep. Inspection defects are legible well below camera
 // resolution, and a 4032px iPhone original costs upload time and vision
 // latency for no diagnostic gain.
@@ -20,19 +16,17 @@ const JPEG_QUALITY = 0.85;
 // devices that actually produce it. Browsers that can't decode the file throw
 // here; we fall back to the original bytes and let the server return its
 // specific "this is a HEIC" message rather than guessing in the dark.
+//
+// Every decodable photo is re-encoded, even a small JPEG. Passing it through
+// left rotation to an EXIF tag the vision API may not apply, so a sideways
+// phone photo could reach the model sideways. Drawing to canvas bakes the
+// orientation into the pixels (and drops EXIF, including GPS).
 export async function prepareImage(file: File): Promise<File> {
-  const needsTranscode = !CLAUDE_READABLE.has(file.type.toLowerCase());
-
   const decoded = await decodeImage(file);
   if (!decoded) return file;
   const { source, width: srcW, height: srcH, release } = decoded;
 
   const scale = Math.min(1, MAX_EDGE / Math.max(srcW, srcH));
-  if (!needsTranscode && scale === 1) {
-    release();
-    return file;
-  }
-
   const width = Math.max(1, Math.round(srcW * scale));
   const height = Math.max(1, Math.round(srcH * scale));
   const canvas = document.createElement("canvas");

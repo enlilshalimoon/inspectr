@@ -1,18 +1,20 @@
 // POST /api/try/draft
 // Body: multipart form with one "photo" file.
 //
-// The public /try demo: no account, no storage. Runs the same two AI stages as
-// /api/ai/process-photo (vision, then finding draft) on the uploaded bytes and
-// returns the finding. The photo is never saved; one row per draft goes into
-// try_drafts for rate limiting and counting.
+// The public /try demo (/go, /tx and /fl redirect here): no account, no storage.
+// One model call looks at the uploaded bytes and drafts findings. It may return
+// one draft per distinct defect, or a single "no defect visible" / "photo unclear"
+// draft instead of inventing a defect. The photo is never saved. One row per
+// photo goes into try_drafts for rate limiting and counting (the cap counts
+// photos, not findings).
 //
-// Every call costs two paid model calls, so it's capped per visitor (IP hash)
-// and globally per day. Over a cap, the page tells them to start a trial.
+// Every call is a paid model call with an image, so it's capped per visitor (IP
+// hash) and globally per day. Over a cap, the page tells them to start a trial.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/server";
-import { analyzeImageBytes, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
+import { draftFindingsFromImage, UnsupportedImageError } from "@/lib/ai/anthropic";
 import { resolveSectionType } from "@/lib/inspection/photos";
 import { labelForSection } from "@/lib/supabase/sections";
 import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/attribution";
@@ -59,56 +61,50 @@ export async function POST(req: NextRequest) {
 
   const buf = Buffer.from(await file.arrayBuffer());
 
-  let vision;
+  let parsed;
   try {
-    vision = await analyzeImageBytes(buf);
+    parsed = await draftFindingsFromImage(buf);
   } catch (err) {
-    console.error("[try] vision failed:", err);
+    console.error("[try] photo finding failed:", err);
     const message =
-      err instanceof UnsupportedImageError ? err.message : "Couldn't read this photo. Try another one.";
-    return NextResponse.json({ error: "vision failed", message }, { status: 502 });
+      err instanceof UnsupportedImageError ? err.message : "Couldn't draft this photo. Try again or try another one.";
+    return NextResponse.json({ error: "draft failed", message }, { status: 502 });
   }
 
-  const section = resolveSectionType(vision.section) ?? "interior";
-  let finding;
-  try {
-    finding = await draftFinding({ section, vision_analysis: vision, transcript: "" });
-  } catch (err) {
-    console.error("[try] draft failed:", err);
-    return NextResponse.json(
-      { error: "draft failed", message: "Read the photo, but drafting failed. Try again." },
-      { status: 502 },
-    );
-  }
-
-  // Sample-photo runs are tagged so usage reports can separate them from
-  // inspectors trying their own photos.
   const source = await firstTouch();
   const sample = form?.get("sample") === "1";
+  const drafts = parsed.findings.map((f) => {
+    const section = resolveSectionType(f.section) ?? "interior";
+    const draft = {
+      section,
+      section_label: labelForSection(section),
+      finding: {
+        severity: f.severity,
+        title: f.title,
+        description: f.description,
+        recommended_action: f.recommended_action,
+      },
+    };
+    // `result` is not part of the email signature. It tells the page whether
+    // this draft is a defect, no defect, or an unclear photo.
+    return { ...draft, result: parsed.result, sig: signFinding(draft) };
+  });
+
+  const lead = drafts[0];
   await db.from("try_drafts").insert({
     visitor,
     source: sample ? { ...(source ?? {}), sample: true } : source,
-    section,
-    severity: finding.severity,
-    title: finding.title?.slice(0, 200),
+    section: lead.section,
+    severity: lead.finding.severity,
+    title: lead.finding.title?.slice(0, 200),
   });
 
-  const draft = {
-    section,
-    section_label: labelForSection(section),
-    finding: {
-      severity: finding.severity,
-      title: finding.title,
-      description: finding.description,
-      recommended_action: finding.recommended_action,
-    },
-  };
-
   const res = NextResponse.json({
-    ...draft,
-    // Lets /api/try/email check it's only sending findings we drafted.
-    sig: signFinding(draft),
-    equipment: vision.equipment_data ?? null,
+    // Top level is the first draft, as before; `drafts` holds every finding
+    // from the photo (the first one included).
+    ...lead,
+    drafts,
+    equipment: parsed.equipment_data ?? null,
   });
   // Lets signup link the new account to this demo run (lib/try/signup-link.ts).
   res.cookies.set(TRY_VISITOR_COOKIE, visitor, {

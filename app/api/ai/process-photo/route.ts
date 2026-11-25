@@ -4,10 +4,12 @@
 // Runs the full per-photo AI pipeline:
 //   1. Vision analysis (Claude Haiku) -> photos.ai_analysis
 //   2. Load any voice transcript already attached to the photo
-//   3. Finding draft (Claude Sonnet) -> insert into findings
+//   3. Finding drafts (Claude Sonnet) -> insert into findings, one row per
+//      distinct defect in the photo, each in its own section, all pointing at
+//      this photo (see lib/ai/multi-defect.ts)
 //
-// Idempotent: if vision already ran we reuse it; if a finding already exists
-// for the photo we return it instead of creating a duplicate.
+// Idempotent: if vision already ran we reuse it; if findings already exist
+// for the photo we return them instead of creating duplicates.
 //
 // Section: a photo uploaded with no section ("Auto" on the capture screen) is
 // filed into the section the vision model recognised, creating that section if
@@ -24,7 +26,8 @@ import { lockError } from "@/lib/inspection/lock";
 import { findOrCreateSection } from "@/lib/inspection/sections-db";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { analyzePhoto, draftFinding, UnsupportedImageError } from "@/lib/ai/anthropic";
+import { analyzePhoto, draftFindings, UnsupportedImageError } from "@/lib/ai/anthropic";
+import { sameDefect, severityRank, type DraftedFinding } from "@/lib/ai/multi-defect";
 import {
   isFindingDismissed,
   resolveSectionType,
@@ -36,6 +39,7 @@ import type {
   Inspection,
   InspectionSection,
   SectionType,
+  Severity,
   VisionAnalysis,
 } from "@/lib/supabase/types";
 
@@ -155,37 +159,32 @@ export async function POST(req: NextRequest) {
   }
 
   // ---------------------------------------------------------------------
-  // Check for existing finding. Reuse it unless caller asked to regenerate
-  // (which happens after a voice note arrives and we want to fold it in).
-  // We only delete inspector-untouched drafts — never overwrite edits.
+  // Check for existing findings (a photo can carry several, one per defect).
+  // Reuse them unless the caller asked to regenerate (after a voice note
+  // arrives and we want to fold it in). Regenerate only replaces drafts the
+  // inspector hasn't touched — edited or approved findings are never
+  // overwritten, and new drafts that repeat one of them are dropped.
   // ---------------------------------------------------------------------
-  const { data: existingFindings } = await supabase
+  const { data: existingRows } = await supabase
     .from("findings")
-    .select("id, severity, title, description, recommended_action, ai_confidence, is_approved, inspector_edited")
+    .select(FINDING_COLS + ", inspector_edited")
     .eq("photo_id", photo.id)
-    .limit(1);
+    .order("created_at");
+  const existing = (existingRows ?? []) as unknown as ExistingFinding[];
 
-  const existing = existingFindings?.[0];
-  if (existing && !regenerate) {
-    return NextResponse.json({
-      vision_analysis: visionAnalysis,
-      finding: existing,
-      section_id: sectionId,
-      reused: true,
-    });
+  if (existing.length && !regenerate) {
+    return NextResponse.json(reply(visionAnalysis, existing, sectionId, { reused: true }));
   }
-  if (existing && regenerate && (existing.inspector_edited || existing.is_approved)) {
-    // Inspector already touched this one — don't blow it away.
-    return NextResponse.json({
-      vision_analysis: visionAnalysis,
-      finding: existing,
-      section_id: sectionId,
-      reused: true,
-      regenerate_skipped: true,
-    });
+  const kept = existing.filter((f) => f.inspector_edited || f.is_approved);
+  const replaceable = existing.filter((f) => !f.inspector_edited && !f.is_approved);
+  if (existing.length && regenerate && !replaceable.length) {
+    // Inspector already touched every finding on this photo — don't blow them away.
+    return NextResponse.json(
+      reply(visionAnalysis, existing, sectionId, { reused: true, regenerate_skipped: true }),
+    );
   }
-  // The old draft (if any) is only removed once its replacement is written
-  // below, so a failed re-draft never leaves the photo with no finding.
+  // Old drafts are only removed once their replacements are written below,
+  // so a failed re-draft never leaves the photo with no findings.
 
   // ---------------------------------------------------------------------
   // Stage 2: gather any existing voice transcript for the photo
@@ -223,10 +222,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no vision analysis available" }, { status: 500 });
   }
 
-  let finding;
+  const photoSection: SectionType =
+    sectionType ?? resolveSectionType(visionAnalysis.section) ?? "interior";
+  let drafts: DraftedFinding[];
   try {
-    finding = await draftFinding({
-      section: sectionType ?? resolveSectionType(visionAnalysis.section) ?? "interior",
+    drafts = await draftFindings({
+      section: photoSection,
       vision_analysis: visionAnalysis,
       transcript,
       property_context,
@@ -243,42 +244,59 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!existing) {
+  if (!existing.length) {
     // Two requests can race for the same photo (capture reopened while a draft
-    // was in flight). If the other one finished first, keep its draft.
+    // was in flight). If the other one finished first, keep its drafts.
     const { data: raced } = await supabase
       .from("findings")
-      .select("id, severity, title, description, recommended_action, ai_confidence, is_approved")
+      .select(FINDING_COLS)
       .eq("photo_id", photo.id)
-      .limit(1);
-    if (raced?.[0]) {
-      return NextResponse.json({
-        vision_analysis: visionAnalysis,
-        finding: raced[0],
-        section_id: sectionId,
-        reused: true,
-      });
+      .order("created_at");
+    if (raced?.length) {
+      return NextResponse.json(
+        reply(visionAnalysis, raced as unknown as ExistingFinding[], sectionId, { reused: true }),
+      );
     }
+  }
+
+  // Drop drafts that repeat a finding the inspector already edited/approved.
+  const fresh = drafts.filter((d) => !kept.some((k) => sameDefect(k.title, d.title)));
+  if (!fresh.length) {
+    return NextResponse.json(reply(visionAnalysis, existing, sectionId, { reused: true }));
+  }
+
+  // Each defect goes in its own section. The photo's own section is used for
+  // drafts in that system; any other section is found or created.
+  const sectionIds = new Map<SectionType, string | null>();
+  if (sectionId) sectionIds.set(photoSection, sectionId);
+  async function sectionFor(type: SectionType): Promise<string | null> {
+    if (!sectionIds.has(type)) {
+      sectionIds.set(type, await findOrCreateSection(supabase, photo.inspection_id, type));
+    }
+    return sectionIds.get(type) ?? sectionId;
+  }
+  const rows = [];
+  for (const d of fresh) {
+    rows.push({
+      inspection_id: photo.inspection_id,
+      section_id: await sectionFor(d.section),
+      photo_id: photo.id,
+      severity: d.severity,
+      title: d.title,
+      description: d.description,
+      recommended_action: d.recommended_action,
+      ai_confidence: d.confidence,
+      is_approved: false,
+      inspector_edited: false,
+    });
   }
 
   const { data: inserted, error: insErr } = await supabase
     .from("findings")
-    .insert({
-      inspection_id: photo.inspection_id,
-      section_id: sectionId,
-      photo_id: photo.id,
-      severity: finding.severity,
-      title: finding.title,
-      description: finding.description,
-      recommended_action: finding.recommended_action,
-      ai_confidence: finding.confidence,
-      is_approved: false,
-      inspector_edited: false,
-    })
-    .select("id, severity, title, description, recommended_action, ai_confidence, is_approved")
-    .single();
+    .insert(rows)
+    .select(FINDING_COLS);
 
-  if (insErr || !inserted) {
+  if (insErr || !inserted?.length) {
     return NextResponse.json(
       {
         error: "could not save finding",
@@ -289,7 +307,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (existing) await supabase.from("findings").delete().eq("id", existing.id);
+  if (replaceable.length) {
+    await supabase
+      .from("findings")
+      .delete()
+      .in(
+        "id",
+        replaceable.map((f) => f.id),
+      );
+  }
   if (dismissed) {
     await supabase
       .from("photos")
@@ -297,12 +323,44 @@ export async function POST(req: NextRequest) {
       .eq("id", photo.id);
   }
 
-  return NextResponse.json({
-    vision_analysis: visionAnalysis,
-    finding: inserted,
+  return NextResponse.json(
+    reply(visionAnalysis, [...(inserted as unknown as ExistingFinding[]), ...kept], sectionId, {
+      reused: false,
+    }),
+  );
+}
+
+const FINDING_COLS =
+  "id, section_id, severity, title, description, recommended_action, ai_confidence, is_approved";
+
+type ExistingFinding = {
+  id: string;
+  section_id: string | null;
+  severity: Severity;
+  title: string;
+  description: string;
+  recommended_action: string | null;
+  ai_confidence: number | null;
+  is_approved: boolean;
+  inspector_edited?: boolean;
+};
+
+// `finding` (the most severe) stays for older clients; `findings` is the full
+// list when one photo showed several defects.
+function reply(
+  vision: VisionAnalysis | null,
+  findings: ExistingFinding[],
+  sectionId: string | null,
+  extra: Record<string, unknown>,
+) {
+  const sorted = [...findings].sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
+  return {
+    vision_analysis: vision,
+    finding: sorted[0] ?? null,
+    findings: sorted,
     section_id: sectionId,
-    reused: false,
-  });
+    ...extra,
+  };
 }
 
 function msg(err: unknown): string {

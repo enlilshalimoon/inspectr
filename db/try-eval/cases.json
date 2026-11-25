@@ -1,0 +1,108 @@
+[
+  {
+    "id": "sample-ceiling-stain",
+    "photo": "public/try-samples/ceiling-stain.jpg",
+    "sections": ["interior"],
+    "results": ["defect"],
+    "defect_keywords": [["peel", "flak", "delaminat", "blister"]],
+    "forbidden_in_title": ["mold", "asbestos", "structural", "sag"],
+    "evidence": "Large area of paint peeling off a ceiling, with tan patches of exposed drywall paper; no visible source."
+  },
+  {
+    "id": "sample-roof-shingles",
+    "photo": "public/try-samples/roof-shingles.jpg",
+    "sections": ["roof"],
+    "results": ["defect"],
+    "defect_keywords": [["crack", "split", "torn", "tear", "lift", "curl", "damage", "missing", "broken"]],
+    "forbidden_in_title": ["hail", "moss", "flashing", "sag"],
+    "evidence": "Asphalt 3-tab shingles with several cracked, torn and lifted tabs mid-slope, in dappled shade."
+  },
+  {
+    "id": "sample-roof-worn",
+    "photo": "public/try-samples/roof-worn.jpg",
+    "sections": ["roof"],
+    "results": ["defect"],
+    "defect_keywords": [["granule", "deteriorat", "worn", "wear", "curl", "age", "fail", "missing", "exposed", "eroded"]],
+    "forbidden_in_title": ["hail", "moss", "flashing", "sag"],
+    "evidence": "Asphalt shingles at the eave with heavy granule loss, curled and delaminating tabs and exposed underlying layer; gutter at bottom."
+  },
+  {
+    "id": "sample-siding-rot",
+    "photo": "public/try-samples/siding-rot.jpg",
+    "sections": ["exterior", "structure", "grounds"],
+    "results": ["defect"],
+    "defect_keywords": [["rot", "decay", "deteriorat", "wood-destroying", "termite", "insect", "damage", "soil", "debris", "vent", "grade"]],
+    "forbidden_in_title": ["mold", "foundation crack"],
+    "evidence": "Painted wood siding at grade with deep wood damage beside a screened foundation vent. Soil and debris are accumulated against the wall and inside the vent. Wood damage is exterior or structure. Debris in the vent, or soil against the siding, is a real finding filed under exterior or grounds (grading)."
+  },
+  {
+    "id": "sample-water-heater",
+    "photo": "public/try-samples/water-heater.jpg",
+    "sections": ["water_heater", "plumbing"],
+    "results": ["defect", "no_defect"],
+    "defect_keywords": [["corros", "rust"]],
+    "forbidden_in_title": ["tpr", "temperature and pressure", "relief", "scorch", "seismic", "strap", "drip pan", "leak", "gas"],
+    "evidence": "Top of a gas water heater: rust/corrosion on the supply pipe fittings and a rust patch on the vent connector. No TPR valve, burner or base in frame."
+  },
+  {
+    "id": "derived-wh-label-only",
+    "photo": "db/try-eval/photos/wh-label-only.jpg",
+    "sections": ["water_heater", "plumbing"],
+    "results": ["no_defect", "unclear", "defect"],
+    "defect_keywords": [["corros", "rust"]],
+    "forbidden_in_title": ["tpr", "temperature and pressure", "relief", "scorch", "seismic", "strap", "drip pan", "leak", "gas", "vent"],
+    "evidence": "Close crop of the brand label and tank top; only the bottoms of the pipes are at the edge. Nothing judgeable beyond light rust at the top edge."
+  },
+  {
+    "id": "derived-roof-intact",
+    "photo": "db/try-eval/photos/roof-intact-crop.jpg",
+    "sections": ["roof"],
+    "results": ["no_defect", "unclear"],
+    "evidence": "Crop of the upper-right of the shingle sample: flat, intact 3-tab shingles in tree shade, no cracked or lifted tabs in frame."
+  },
+  {
+    "id": "derived-ceiling-plain",
+    "photo": "db/try-eval/photos/ceiling-plain-strip.jpg",
+    "sections": "*",
+    "results": ["no_defect", "unclear"],
+    "evidence": "Thin strip of plain painted surface with nothing on it (bottom of the ceiling sample)."
+  },
+  {
+    "id": "derived-ceiling-unreadable",
+    "photo": "db/try-eval/photos/ceiling-unreadable.jpg",
+    "sections": "*",
+    "results": ["unclear"],
+    "evidence": "Ceiling sample shrunk to 24px and blown back up: grey blur, no detail. The right answer is 'photo unclear'."
+  },
+  {
+    "id": "derived-siding-unreadable",
+    "photo": "db/try-eval/photos/siding-unreadable.jpg",
+    "sections": "*",
+    "results": ["unclear"],
+    "evidence": "Siding sample shrunk to 24px and blown back up: blocky blur, no detail. The right answer is 'photo unclear'."
+  },
+  {
+    "id": "composite-siding-and-ceiling",
+    "photo": "db/try-eval/photos/siding-and-ceiling.jpg",
+    "sections": ["exterior", "structure", "interior"],
+    "results": ["defect"],
+    "defect_keywords": [["rot", "decay", "deteriorat", "termite", "insect", "wood"], ["ceiling", "drywall", "sheetrock"]],
+    "forbidden_in_title": ["mold", "asbestos", "active leak", "roof leak"],
+    "min_findings": 2,
+    "evidence": "Side-by-side composite of the Wikimedia siding photo and the ceiling photo, with a white gap. Two separate conditions: damaged wood at grade, and peeling ceiling paint. Not a client photo. A correct draft names both and does not call the ceiling an active leak."
+  },
+  {
+    "id": "heldout-wh-jacket",
+    "photo": "db/try-eval/photos/wh-jacket-plain.jpg",
+    "sections": ["water_heater", "plumbing", "interior"],
+    "results": ["no_defect", "unclear"],
+    "evidence": "Crop of the painted tank jacket below the label on the Wikimedia water heater photo. No fittings and no label text. Ordinary paint variation and a faint shade band only."
+  },
+  {
+    "id": "heldout-ceiling-corner",
+    "photo": "db/try-eval/photos/ceiling-intact-corner.jpg",
+    "sections": ["interior"],
+    "results": ["no_defect", "unclear"],
+    "evidence": "Corner crop of intact painted ceiling from the Wikimedia ceiling photo, away from the peeling area. Plain paint, no stain and no peeled paper."
+  }
+]

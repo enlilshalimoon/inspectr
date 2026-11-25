@@ -11,7 +11,7 @@ import { TryClient } from "./try-client";
 export const metadata: Metadata = {
   title: "Try Lookover on your own photos",
   description:
-    "Drop photos from a recent inspection and see the findings Lookover writes from them. No signup, photos aren't saved.",
+    "Drop photos from a recent inspection and see the draft findings Lookover writes from them. No signup, photos aren't saved.",
 };
 
 export default function TryPage() {
