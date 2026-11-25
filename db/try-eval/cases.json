@@ -29,11 +29,11 @@
   {
     "id": "sample-siding-rot",
     "photo": "public/try-samples/siding-rot.jpg",
-    "sections": ["exterior", "structure"],
+    "sections": ["exterior", "structure", "grounds"],
     "results": ["defect"],
-    "defect_keywords": [["rot", "decay", "deteriorat", "wood-destroying", "termite", "insect", "damage"]],
+    "defect_keywords": [["rot", "decay", "deteriorat", "wood-destroying", "termite", "insect", "damage", "soil", "debris", "vent", "grade"]],
     "forbidden_in_title": ["mold", "foundation crack"],
-    "evidence": "Painted wood siding/skirting at grade with deep wood damage and peeling paint beside a screened vent; soil and debris against it."
+    "evidence": "Painted wood siding at grade with deep wood damage beside a screened foundation vent. Soil and debris are accumulated against the wall and inside the vent. Wood damage is exterior or structure. Debris in the vent, or soil against the siding, is a real finding filed under exterior or grounds (grading)."
   },
   {
     "id": "sample-water-heater",

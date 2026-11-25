@@ -114,6 +114,39 @@ test("fewer findings than min_findings is a miss, not a confident wrong defect",
   assert.ok(s.reasons.some((r) => r.includes("at least 2")));
 });
 
+test("siding sample accepts wood damage and debris in the foundation vent", () => {
+  const cases = JSON.parse(readFileSync("db/try-eval/cases.json", "utf8")) as EvalLabel[];
+  const label = cases.find((c) => c.id === "sample-siding-rot");
+  assert.ok(label);
+  assert.ok(label.sections !== "*" && label.sections.includes("exterior"));
+  assert.ok(label.sections.includes("grounds"));
+
+  const rot: EvalOutput = {
+    result: "defect",
+    section: "exterior",
+    severity: "major_repair",
+    title: "Severe wood deterioration at the siding base",
+    description: "The wood siding beside the vent is decayed.",
+  };
+  const vent = {
+    result: "defect" as const,
+    section: "grounds",
+    severity: "minor_repair",
+    title: "Debris accumulated in the screened foundation vent",
+    description: "Soil and debris have accumulated inside the screened foundation vent.",
+  };
+  const both = scoreOutput(label, { ...rot, findings: [rot, vent] });
+  assert.equal(both.correct, true, both.reasons.join("; "));
+  assert.equal(both.confidentWrongDefect, false);
+
+  const ventOnExterior = scoreOutput(label, { ...rot, findings: [rot, { ...vent, section: "exterior" }] });
+  assert.equal(ventOnExterior.correct, true, ventOnExterior.reasons.join("; "));
+
+  // The vent condition is accepted, not required. A wood-damage-only draft still passes.
+  const onlyWood = scoreOutput(label, rot);
+  assert.equal(onlyWood.correct, true, onlyWood.reasons.join("; "));
+});
+
 test("committed cases are well-formed and their photos exist", () => {
   const cases = JSON.parse(readFileSync("db/try-eval/cases.json", "utf8")) as EvalLabel[];
   const sections = new Set<string>(STANDARD_SECTIONS.map((s) => s.type));
