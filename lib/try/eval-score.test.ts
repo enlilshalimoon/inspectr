@@ -81,6 +81,39 @@ test("summary and pass bar: 80% correct and no confident wrong defects", () => {
   assert.equal(summarize([failed]).errors, 1);
 });
 
+test("an extra defect the label doesn't describe is a confident wrong defect", () => {
+  const s = scoreOutput(waterHeater, {
+    ...out({}),
+    findings: [
+      {
+        result: "defect",
+        section: "water_heater",
+        severity: "monitor",
+        title: "Corrosion at supply fittings",
+        description: "Rust is visible on the supply pipe fittings.",
+      },
+      {
+        result: "defect",
+        section: "water_heater",
+        severity: "major_repair",
+        title: "Active roof leak above the tank",
+        description: "Water is entering from the roof.",
+      },
+    ],
+  });
+  assert.equal(s.correct, false);
+  assert.equal(s.confidentWrongDefect, true);
+  assert.ok(s.reasons.some((r) => r.includes("roof leak")));
+});
+
+test("fewer findings than min_findings is a miss, not a confident wrong defect", () => {
+  const label: EvalLabel = { ...waterHeater, min_findings: 2, defect_keywords: [["corros"], ["vent"]] };
+  const s = scoreOutput(label, out({ description: "Rust is visible on the supply pipe fittings and the vent." }));
+  assert.equal(s.correct, false);
+  assert.equal(s.confidentWrongDefect, false);
+  assert.ok(s.reasons.some((r) => r.includes("at least 2")));
+});
+
 test("committed cases are well-formed and their photos exist", () => {
   const cases = JSON.parse(readFileSync("db/try-eval/cases.json", "utf8")) as EvalLabel[];
   const sections = new Set<string>(STANDARD_SECTIONS.map((s) => s.type));
@@ -96,4 +129,5 @@ test("committed cases are well-formed and their photos exist", () => {
     if (c.results.includes("defect")) assert.ok(c.defect_keywords?.length, `${c.id}: defect needs keywords`);
   }
   assert.ok(cases.some((c) => !c.results.includes("defect")), "needs no-defect/unclear cases");
+  assert.ok(cases.some((c) => (c.min_findings ?? 0) >= 2), "needs a photo with two defects");
 });

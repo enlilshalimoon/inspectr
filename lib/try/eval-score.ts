@@ -18,11 +18,22 @@ export interface EvalLabel {
   sections: string[] | "*";
   results: PhotoFindingResult[];
   // For a defect: every group needs at least one match (case-insensitive
-  // substring) in title + description + evidence.
+  // substring) across the findings and the evidence.
   defect_keywords?: string[][];
-  // A match in the title means it named a condition the photo doesn't show.
+  // A match in a defect title means it named a condition the photo doesn't show.
   forbidden_in_title?: string[];
+  // When set, fewer findings than this is a miss (a two-defect photo).
+  min_findings?: number;
   evidence: string;
+}
+
+export interface EvalFinding {
+  result: PhotoFindingResult;
+  section: string;
+  severity: string;
+  title: string;
+  description: string;
+  recommended_action?: string;
 }
 
 export interface EvalOutput {
@@ -32,6 +43,8 @@ export interface EvalOutput {
   title: string;
   description: string;
   evidence?: string;
+  recommended_action?: string;
+  findings?: EvalFinding[];
 }
 
 export interface EvalScore {
@@ -42,34 +55,89 @@ export interface EvalScore {
 
 const has = (text: string, needle: string) => text.toLowerCase().includes(needle.toLowerCase());
 
+function listedFindings(out: EvalOutput): EvalFinding[] {
+  if (out.findings && out.findings.length) return out.findings;
+  return [
+    {
+      result: out.result,
+      section: out.section,
+      severity: out.severity,
+      title: out.title,
+      description: out.description,
+    },
+  ];
+}
+
+function findingText(f: EvalFinding): string {
+  return `${f.title} ${f.description}`;
+}
+
+// A confident defect is supported when its own text matches at least one
+// keyword group. An extra invented defect (right lead finding, wrong second
+// one) fails this even if the combined text still contains the real condition.
+function supported(label: EvalLabel, f: EvalFinding): boolean {
+  if (!label.defect_keywords?.length) return true;
+  const text = findingText(f);
+  return label.defect_keywords.some((group) => group.some((k) => has(text, k)));
+}
+
 export function scoreOutput(label: EvalLabel, out: EvalOutput): EvalScore {
+  const findings = listedFindings(out);
   const reasons: string[] = [];
-  const sectionOk = label.sections === "*" || label.sections.includes(out.section);
-  if (!sectionOk) reasons.push(`section ${out.section} not in ${(label.sections as string[]).join("/")}`);
+  const sectionOk = label.sections === "*" || findings.every((f) => label.sections.includes(f.section));
+  if (!sectionOk) {
+    const bad = findings
+      .map((f) => f.section)
+      .filter((section) => label.sections !== "*" && !label.sections.includes(section));
+    reasons.push(`section ${bad.join("/")} not in ${(label.sections as string[]).join("/")}`);
+  }
 
   const resultOk = label.results.includes(out.result);
   if (!resultOk) reasons.push(`result ${out.result} not in ${label.results.join("/")}`);
 
+  const expectsDefect = label.results.includes("defect");
+  const confident = findings.filter((f) => f.result === "defect" && f.severity !== "info");
   let defectWrong = false;
-  if (out.result === "defect") {
-    if (!label.results.includes("defect")) defectWrong = true;
-    const text = [out.title, out.description, out.evidence ?? ""].join(" ");
+
+  if (confident.length && !expectsDefect) {
+    defectWrong = true;
+    reasons.push("returned a defect");
+  }
+
+  if (out.result === "defect" && expectsDefect) {
+    const text = [out.evidence ?? "", ...findings.map(findingText)].join(" ");
     for (const group of label.defect_keywords ?? []) {
       if (!group.some((k) => has(text, k))) {
         defectWrong = true;
         reasons.push(`missing any of: ${group.join(", ")}`);
       }
     }
-    const hit = (label.forbidden_in_title ?? []).find((k) => has(out.title, k));
+  }
+
+  for (const f of confident) {
+    const hit = (label.forbidden_in_title ?? []).find((k) => has(f.title, k));
     if (hit) {
       defectWrong = true;
       reasons.push(`title claims "${hit}"`);
     }
+    if (expectsDefect && !supported(label, f)) {
+      defectWrong = true;
+      reasons.push(`finding not labeled: ${f.title}`);
+    }
   }
 
+  const countOk = !label.min_findings || findings.length >= label.min_findings;
+  if (!countOk) reasons.push(`returned ${findings.length}, want at least ${label.min_findings}`);
+
+  const confidentWrongDefect = confident.some((f) => {
+    if (!expectsDefect) return true;
+    if ((label.forbidden_in_title ?? []).some((k) => has(f.title, k))) return true;
+    return !supported(label, f);
+  });
+
   return {
-    correct: sectionOk && resultOk && !defectWrong,
-    confidentWrongDefect: out.result === "defect" && out.severity !== "info" && defectWrong,
+    correct: sectionOk && resultOk && !defectWrong && countOk,
+    confidentWrongDefect,
     reasons,
   };
 }
@@ -89,8 +157,12 @@ export function summarize(
     n: rows.length,
     correct: rows.filter((r) => r.score?.correct).length,
     confidentWrongDefects: rows.filter((r) => r.score?.confidentWrongDefect).length,
-    sectionCorrect: rows.filter((r) => r.out && (r.label.sections === "*" || r.label.sections.includes(r.out.section)))
-      .length,
+    sectionCorrect: rows.filter((r) => {
+      if (!r.out) return false;
+      if (r.label.sections === "*") return true;
+      const findings = r.out.findings?.length ? r.out.findings : [r.out];
+      return findings.every((f) => r.label.sections.includes(f.section));
+    }).length,
     errors: rows.filter((r) => !r.out).length,
   };
 }

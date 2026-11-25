@@ -96,6 +96,18 @@ export default async function ReviewPage({ params }: Props) {
     photoUrlById.set(p.id as string, signed.get(p.storage_path as string) ?? null);
   }
 
+  // One photo can carry several findings (one per defect). Each card lists the
+  // others so the inspector can merge two that are really one issue.
+  const findingsByPhoto = new Map<string, Finding[]>();
+  for (const f of (findings ?? []) as Finding[]) {
+    if (!f.photo_id) continue;
+    findingsByPhoto.set(f.photo_id, [...(findingsByPhoto.get(f.photo_id) ?? []), f]);
+  }
+  const siblingsOf = (f: Finding) =>
+    (findingsByPhoto.get(f.photo_id as string) ?? [])
+      .filter((o) => o.id !== f.id)
+      .map((o) => ({ id: o.id, title: o.title, is_approved: o.is_approved }));
+
   // Each finding shows its own photo, so the strip only lists photos that
   // aren't in the report (finding deleted, draft failed, or still drafting).
   const photosWithFinding = new Set((findings ?? []).map((f) => f.photo_id as string | null));
@@ -331,6 +343,7 @@ export default async function ReviewPage({ params }: Props) {
                       userId={user.id}
                       photoUrl={finding.photo_id ? photoUrlById.get(finding.photo_id) : null}
                       sectionType={s.section_type as SectionType}
+                      siblings={finding.photo_id ? siblingsOf(finding) : []}
                     />
                   ))}
                 </div>

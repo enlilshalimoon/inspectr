@@ -12,6 +12,7 @@ import "dotenv/config";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
+import { normalizeDrafts } from "../lib/ai/multi-defect";
 import {
   FINDING_SYSTEM_PROMPT,
   buildFindingUserPrompt,
@@ -102,7 +103,7 @@ async function callAi(c: BenchmarkCase): Promise<FindingPromptOutput> {
 
   const res = await client.messages.create({
     model: MODEL,
-    max_tokens: 800,
+    max_tokens: 2000,
     system: FINDING_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildFindingUserPrompt(c.input) }],
   });
@@ -119,7 +120,11 @@ async function callAi(c: BenchmarkCase): Promise<FindingPromptOutput> {
     .replace(/\s*```\s*$/i, "")
     .trim();
 
-  return JSON.parse(jsonStr) as FindingPromptOutput;
+  // The prompt returns { findings: [...] } (one per defect). Benchmark cases
+  // are single-defect, so score the lead finding.
+  const [lead] = normalizeDrafts(JSON.parse(jsonStr), c.input.section);
+  if (!lead) throw new Error("no usable finding in model output");
+  return lead;
 }
 
 // ---------------------------------------------------------------------------

@@ -12,12 +12,12 @@ import {
   VISION_SYSTEM_PROMPT,
   buildFindingUserPrompt,
   buildVisionUserPrompt,
-  parsePhotoFinding,
+  parsePhotoFindings,
   type FindingPromptInput,
-  type FindingPromptOutput,
-  type PhotoFindingOutput,
+  type PhotoFindingsOutput,
   type VisionAnalysis,
 } from "./prompts";
+import { normalizeDrafts, type DraftedFinding } from "./multi-defect";
 
 function client() {
   const key = process.env.ANTHROPIC_API_KEY;
@@ -150,16 +150,32 @@ export async function analyzeImageBytes(
 }
 
 // ---------------------------------------------------------------------------
-// One step: the model that writes the finding looks at the photo itself
-// (public /try demo). See PHOTO_FINDING_SYSTEM_PROMPT for why.
+// One step: the model that writes the findings looks at the photo itself
+// (public /try demo). See PHOTO_FINDING_SYSTEM_PROMPT. Returns one draft per
+// distinct defect, or a single no_defect / unclear draft.
+//
+// `create` is the Anthropic messages call. Tests pass a fake so they can prove
+// the photo bytes are in the request without a live key.
 // ---------------------------------------------------------------------------
-export async function draftFindingFromImage(buf: Buffer): Promise<PhotoFindingOutput> {
+export type PhotoModelReply = {
+  stop_reason: string | null;
+  content: { type: string; text?: string }[];
+};
+
+export type PhotoModelCreate = (
+  params: Anthropic.MessageCreateParamsNonStreaming,
+) => Promise<PhotoModelReply>;
+
+export async function draftFindingsFromImage(
+  buf: Buffer,
+  create: PhotoModelCreate = (params) => client().messages.create(params),
+): Promise<PhotoFindingsOutput> {
   const mediaType = sniffMediaType(buf);
   if (!mediaType) throw new UnsupportedImageError(unsupportedImageMessage(buf));
 
-  const reply = await client().messages.create({
+  const reply = await create({
     model: PHOTO_FINDING_MODEL,
-    max_tokens: 1200,
+    max_tokens: 2400,
     system: PHOTO_FINDING_SYSTEM_PROMPT,
     messages: [
       {
@@ -174,20 +190,22 @@ export async function draftFindingFromImage(buf: Buffer): Promise<PhotoFindingOu
   if (reply.stop_reason === "max_tokens") throw new Error("photo finding reply was cut off at max_tokens");
 
   const text = reply.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text ?? "")
     .join("");
 
-  return parsePhotoFinding(text);
+  return parsePhotoFindings(text);
 }
 
 // ---------------------------------------------------------------------------
-// Finding generation from vision + transcript.
+// Finding generation from vision + transcript. Capture still uses this: the
+// drafting model does not see the photo. One photo can show several distinct
+// defects, so this returns a list (see lib/ai/multi-defect.ts).
 // ---------------------------------------------------------------------------
-export async function draftFinding(input: FindingPromptInput): Promise<FindingPromptOutput> {
+export async function draftFindings(input: FindingPromptInput): Promise<DraftedFinding[]> {
   const reply = await client().messages.create({
     model: DRAFTING_MODEL,
-    max_tokens: 800,
+    max_tokens: 2000,
     system: FINDING_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildFindingUserPrompt(input) }],
   });
@@ -197,5 +215,7 @@ export async function draftFinding(input: FindingPromptInput): Promise<FindingPr
     .map((b) => (b as { type: "text"; text: string }).text)
     .join("");
 
-  return JSON.parse(stripJsonFence(text)) as FindingPromptOutput;
+  const drafts = normalizeDrafts(JSON.parse(stripJsonFence(text)), input.section);
+  if (!drafts.length) throw new Error("draft returned no usable findings");
+  return drafts;
 }
