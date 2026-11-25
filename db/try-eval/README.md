@@ -37,12 +37,14 @@ The old pipeline has no `result` field; a finding with severity `info` counts as
 
 ## Cases
 
-`cases.json`: the five /try sample photos (`public/try-samples/`) plus six
-derived from them in `photos/`: a crop with no defect in frame, a plain
-strip, two photos blurred until nothing can be judged (right answer:
-"unclear"), and a side-by-side composite of the siding and ceiling samples
-(two defects in one frame, `min_findings` 2). The derived ones test
-"no defect", "unclear", and two defects. They are not client photos.
+`cases.json`: the five /try sample photos (`public/try-samples/`) plus eight
+derived from them in `photos/`: intact-surface crops (roof, ceiling strip,
+ceiling corner, water-heater jacket), two photos blurred until nothing can
+be judged (right answer: "unclear"), and a side-by-side composite of the
+siding and ceiling samples (two defects in one frame, `min_findings` 2).
+The derived ones test "no defect", "unclear", and two defects. They are
+not client photos. The jacket and ceiling-corner crops are held out from
+the first eval run; they are still the same Wikimedia sources.
 
 Inspector photos are not committed: the repo is public, and /try never stores
 photos. To score photos an inspector shared with permission, put them in
@@ -56,8 +58,8 @@ The derived photos are crops/rescales of them and carry the same license:
 
 | File | Derived from | Author | License |
 | --- | --- | --- | --- |
-| `photos/wh-label-only.jpg` | Rheem home gas water heater tank - top of tank.jpg | Infrogmation of New Orleans | CC BY-SA 4.0 |
+| `photos/wh-label-only.jpg`, `photos/wh-jacket-plain.jpg` | Rheem home gas water heater tank - top of tank.jpg | Infrogmation of New Orleans | CC BY-SA 4.0 |
 | `photos/roof-intact-crop.jpg` | Asphalt shingles damage.jpg | Samuel Bolton | CC BY-SA 4.0 |
-| `photos/ceiling-plain-strip.jpg`, `photos/ceiling-unreadable.jpg` | Ceiling sheetrock damaged by water so paint was peeling.jpg | Tomwsulcer | CC0 |
+| `photos/ceiling-plain-strip.jpg`, `photos/ceiling-intact-corner.jpg`, `photos/ceiling-unreadable.jpg` | Ceiling sheetrock damaged by water so paint was peeling.jpg | Tomwsulcer | CC0 |
 | `photos/siding-unreadable.jpg` | Termite damage.JPG | Alton | CC BY-SA 3.0 |
 | `photos/siding-and-ceiling.jpg` | Termite damage.JPG beside Ceiling sheetrock damaged by water so paint was peeling.jpg | Alton; Tomwsulcer | CC BY-SA 3.0 and CC0 |

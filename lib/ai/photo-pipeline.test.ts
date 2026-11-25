@@ -51,6 +51,7 @@ test("draftFindingsFromImage sends this photo's bytes to the model", async () =>
   const out = await draftFindingsFromImage(buf, create);
 
   assert.ok(seen);
+  assert.equal(seen.temperature, 0);
   assert.match(String(seen.system), /no_defect/);
   assert.match(String(seen.system), /distinct defect/);
   const content = seen.messages[0].content;

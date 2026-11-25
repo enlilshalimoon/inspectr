@@ -156,12 +156,14 @@ export const PHOTO_FINDING_SYSTEM_PROMPT = `You are an experienced licensed home
 How to look at the photo:
 - Inspectors photograph things to document a condition. Look closely at what is centered, in focus, or pointed at (finger, flashlight, pen, tape measure, moisture meter reading) before deciding what the photo is about.
 - Write only what is visible. Do not state age, material, measurements, brand, model, location in the house, or cause unless you can read or see it in the photo. If a detail matters but can't be seen, say it could not be determined from the photo.
-- Do not invent a defect. If the component looks serviceable, set "result" to "no_defect". If the photo is too dark, blurry, close, or ambiguous to judge, set "result" to "unclear". A wrong defect is worse than no finding.
-- One photo can show more than one defect (different repair, trade, or component). Write a separate finding for each distinct defect, each with its own section and severity. The same problem seen in more than one spot is one finding. Symptoms of one problem (a stain and soft drywall from the same moisture) are one finding. At most 4 findings. Order them most severe first.
+- A defect is a discrete failure you could circle: an open crack, a tear, a hole, substrate actually showing through, corrosion product, peeled coating, or a component that is plainly not doing its job. Shade, shadow, dappled light, ordinary texture, and color variation are not defects. The granular surface of a shingle, intact paint, wood grain, and a straight seated edge are normal. If a mark might be shade or texture, omit it.
+- Do not invent a defect to be thorough. A wrong defect is worse than no finding. If the subject looks intact, set "result" to "no_defect". If the photo is too dark, blurry, cropped, or ambiguous to judge, set "result" to "unclear". Do not publish a list of possible defects when you are unsure.
+- One photo can show more than one defect (different repair, trade, or component). Write a separate finding for each distinct defect, each with its own evidence sentence, section, and severity. The same problem seen in more than one spot is one finding. Symptoms of one problem (a stain and soft drywall from the same moisture) are one finding. At most 4 findings. Order them most severe first.
 - If at least one real defect is visible, "result" is "defect" and "findings" lists only those defects. Do not add a no-defect finding for the rest of the photo, and do not invent a second defect to fill the list.
 - For "no_defect" or "unclear", return exactly one finding.
+- Confidence is your honest probability that this exact finding is visible, from 0 to 1. A guessed or "possible" mark is below 0.6 and should be omitted instead. major_repair and safety_hazard need confidence of at least 0.8, and only when the failure is unmistakable and more than a single ambiguous spot.
 
-Things inspectors commonly document (examples, not a checklist to force onto the photo):
+Things inspectors commonly document (use a line only when that feature is already visible; this is not a list to search):
 - Electrical panels: double-tapped breakers, missing knockout or breaker blanks, scorching, rust or water entry, missing cable clamps, aluminum branch wiring, missing dead-front screws.
 - Water heaters: missing, undersized, capped or improperly terminated TPR discharge pipe; corrosion at fittings; vent connector slope, gaps or clearance; scorching at the burner area; missing drip pan where needed; missing seismic straps where required.
 - Roofs: granule loss, cracked, curled, lifted or missing shingles, exposed nails, damaged flashing, moss, sagging.
@@ -176,7 +178,7 @@ Writing rules (non-negotiable):
 2. Never use the word "dangerous". Use "safety concern" or "safety hazard".
 3. Never recommend a specific contractor or brand. Recommend a trade ("licensed electrician", "licensed plumber", "HVAC technician", "structural engineer", "qualified roofing contractor", "licensed pest control operator") plus an action ("evaluate and repair", "evaluate and replace", "secure", "monitor").
 4. Do not diagnose latent or underlying causes. Use "indicates possible..." not "this is caused by...".
-5. Be conservative on severity. Reserve "safety_hazard" for immediate risk: missing GFCI in wet locations, exposed live conductors, unfilled panel knockouts, foundation movement with bowing, missing smoke detectors in sleeping areas, photo-eye safety reverse failure, improper baluster spacing, scalding TPR discharge.
+5. Be conservative on severity. A discoloration, a thin spot, or one mark you are not sure of is "monitor" at most, and only when the feature is unmistakable; otherwise omit it. "major_repair" is for a failure that is obvious and widespread in the frame (many torn pieces, substrate exposed in more than one place, wood crumbled, a component that cannot do its job). Reserve "safety_hazard" for immediate risk: missing GFCI in wet locations, exposed live conductors, unfilled panel knockouts, foundation movement with bowing, missing smoke detectors in sleeping areas, photo-eye safety reverse failure, improper baluster spacing, scalding TPR discharge.
 6. For "no_defect" and "unclear", severity is "info" and recommended_action is "" (for "unclear", the description says what couldn't be judged and what photo would settle it).
 
 Severity tiers:
@@ -186,11 +188,11 @@ Severity tiers:
 - major_repair: significant cost or complexity, recommend before closing
 - safety_hazard: immediate safety concern, prioritize
 
-Sections:
-- grounds: grading, drainage, driveways, walkways, retaining walls, vegetation
+Sections (file the finding under the component that needs the work):
+- grounds: the yard itself — grading, drainage, driveways, walkways, retaining walls, vegetation, a downspout discharging on the ground. Not siding.
 - roof: roof coverings, flashing, gutters, roof penetrations seen from above
-- exterior: siding, trim, eaves, exterior doors and windows, decks, porches, steps, railings
-- structure: foundation, crawlspace, basement walls, framing, piers
+- exterior: siding, skirting, trim, eaves, exterior doors and windows, decks, porches, steps, railings. Soil, mulch, or grade touching wood siding or skirting is exterior, because the siding is what fails.
+- structure: foundation walls, crawlspace, basement walls, framing, sill, rim joist, piers. Use this only when that member itself is the subject, not merely because soil is in the frame.
 - garage: garage doors, openers, fire separation, garage slab
 - attic: attic framing and sheathing, insulation, ventilation
 - electrical: service, panels, breakers, wiring, outlets, switches, fixtures
@@ -212,6 +214,7 @@ Output JSON with this exact shape:
   "findings": [
     {
       "section": one of the section keys above,
+      "evidence": string (one sentence for THIS finding only: the discrete feature and where it sits in the frame. Do not repeat shade or texture as evidence.),
       "severity": "info" | "monitor" | "minor_repair" | "major_repair" | "safety_hazard",
       "title": string (5-10 words, professional finding name, no marketing language. For no_defect, say what was visible and that no defect is visible. For unclear, say the photo could not be judged.),
       "description": string (2-4 sentences: observation -> why it matters -> context. No alarmist language.),
@@ -224,10 +227,59 @@ Output JSON with this exact shape:
 Respond with ONLY the JSON object. No prose before or after.`;
 
 export const PHOTO_FINDING_USER_PROMPT =
-  "Draft the findings for this inspection photo. No section hint or voice note was provided. Return one finding per distinct visible defect, or a single no_defect or unclear finding.";
+  "Draft findings for this inspection photo. No section hint and no voice note. Report a defect only when you can point at a discrete failure (a break, tear, hole, exposed substrate, corrosion product, or a component that has plainly failed). Shade, shadow, texture, and color variation are not defects. If the surface looks intact, return no_defect. If you cannot tell, return unclear. Do not fill a list with possible defects. Each defect needs its own evidence sentence. Soil or mulch against wood siding is an exterior finding, not grounds.";
 
 const SEVERITIES: readonly Severity[] = ["info", "monitor", "minor_repair", "major_repair", "safety_hazard"];
 const RESULTS: readonly PhotoFindingResult[] = ["defect", "no_defect", "unclear"];
+
+// Below this, a defect draft is a guess. Drop it rather than show it as a finding.
+export const MIN_DEFECT_CONFIDENCE = 0.6;
+// major_repair / safety_hazard need an unmistakable failure, not a maybe.
+export const MIN_MAJOR_CONFIDENCE = 0.8;
+export const MIN_SAFETY_CONFIDENCE = 0.85;
+// An evidence sentence shorter than this cannot name a discrete feature.
+export const MIN_EVIDENCE_CHARS = 40;
+
+const SIDING_COMPONENT = /\b(siding|skirting|cladding|clapboard)\b/i;
+const SOIL_OR_GRADE = /\b(soil|mulch|grade|ground)\b/i;
+const TOUCHING = /\b(contact|against|touching|buried|at grade)\b/i;
+const STRUCTURE_MEMBER = /\b(foundation wall|rim joist|sill plate|framing|studs?|joists?|beams?)\b/i;
+
+// Soil against the siding is an exterior repair. Yard drainage with no siding
+// in the finding stays grounds. A foundation or framing member stays structure.
+export function normalizeFindingSection(section: string, title: string, description: string): string {
+  const text = `${title} ${description}`;
+  if (SIDING_COMPONENT.test(text) && SOIL_OR_GRADE.test(text) && TOUCHING.test(text) && !STRUCTURE_MEMBER.test(text)) {
+    return "exterior";
+  }
+  return section;
+}
+
+export function calibrateSeverity(severity: Severity, confidence: number): Severity {
+  if (severity === "safety_hazard" && confidence < MIN_SAFETY_CONFIDENCE) {
+    return confidence >= MIN_MAJOR_CONFIDENCE ? "major_repair" : "monitor";
+  }
+  if (severity === "major_repair" && confidence < MIN_MAJOR_CONFIDENCE) {
+    return "minor_repair";
+  }
+  return severity;
+}
+
+function evidenceUsable(evidence: string): boolean {
+  return evidence.trim().length >= MIN_EVIDENCE_CHARS;
+}
+
+function unclearBecauseEvidenceIsWeak(seed: PhotoFindingOutput): PhotoFindingOutput {
+  return {
+    ...seed,
+    result: "unclear",
+    severity: "info",
+    title: "No clear defect in this photo",
+    description:
+      "Nothing in the photo is a discrete defect clear enough to draft. Shade, texture, and color variation are not reported as damage. A closer, evenly lit photo would settle anything still in doubt.",
+    recommended_action: "",
+  };
+}
 
 function extractJsonObject(text: string): Record<string, unknown> {
   const fenced = text
@@ -271,6 +323,7 @@ export function parsePhotoFindings(text: string): PhotoFindingsOutput {
     const title = str(row.title);
     const description = str(row.description);
     if (!title || !description) continue;
+    const ownEvidence = str(row.evidence);
     const severity: Severity =
       result !== "defect"
         ? "info"
@@ -278,11 +331,12 @@ export function parsePhotoFindings(text: string): PhotoFindingsOutput {
           ? (row.severity as Severity)
           : "monitor";
     const confidence = typeof row.confidence === "number" ? Math.min(1, Math.max(0, row.confidence)) : 0.5;
+    const section = normalizeFindingSection(str(row.section) || str(raw.section), title, description);
     cleaned.push({
       result,
-      section: str(row.section) || str(raw.section),
+      section,
       primary_subject,
-      evidence,
+      evidence: ownEvidence || evidence,
       severity,
       title,
       description,
@@ -293,23 +347,37 @@ export function parsePhotoFindings(text: string): PhotoFindingsOutput {
   }
   if (!cleaned.length) throw new Error("reply is missing title or description");
 
-  const findings = collapseFindings(result, cleaned);
-  return { result, primary_subject, evidence, equipment_data, findings };
+  const gated = collapseFindings(result, cleaned);
+  return { result: gated.result, primary_subject, evidence, equipment_data, findings: gated.findings };
 }
 
-function collapseFindings(result: PhotoFindingResult, cleaned: PhotoFindingOutput[]): PhotoFindingOutput[] {
+function collapseFindings(
+  result: PhotoFindingResult,
+  cleaned: PhotoFindingOutput[],
+): { result: PhotoFindingResult; findings: PhotoFindingOutput[] } {
   switch (result) {
     case "no_defect":
     case "unclear":
-      return [{ ...cleaned[0], result, severity: "info", recommended_action: "" }];
+      return {
+        result,
+        findings: [{ ...cleaned[0], result, severity: "info", recommended_action: "" }],
+      };
     case "defect": {
-      const ordered = [...cleaned].sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
+      const publishable = cleaned.filter(
+        (finding) => finding.confidence >= MIN_DEFECT_CONFIDENCE && evidenceUsable(finding.evidence),
+      );
+      if (!publishable.length) {
+        return { result: "unclear", findings: [unclearBecauseEvidenceIsWeak(cleaned[0])] };
+      }
+      const ordered = publishable
+        .map((finding) => ({ ...finding, severity: calibrateSeverity(finding.severity, finding.confidence) }))
+        .sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
       const kept: PhotoFindingOutput[] = [];
       for (const finding of ordered) {
         if (kept.some((existing) => sameDefect(existing.title, finding.title))) continue;
         kept.push(finding);
       }
-      return kept.slice(0, MAX_FINDINGS_PER_PHOTO);
+      return { result: "defect", findings: kept.slice(0, MAX_FINDINGS_PER_PHOTO) };
     }
     default: {
       const exhaustive: never = result;

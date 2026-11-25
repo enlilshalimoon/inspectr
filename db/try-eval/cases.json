@@ -90,5 +90,19 @@
     "forbidden_in_title": ["mold", "asbestos", "active leak", "roof leak"],
     "min_findings": 2,
     "evidence": "Side-by-side composite of the Wikimedia siding photo and the ceiling photo, with a white gap. Two separate conditions: damaged wood at grade, and peeling ceiling paint. Not a client photo. A correct draft names both and does not call the ceiling an active leak."
+  },
+  {
+    "id": "heldout-wh-jacket",
+    "photo": "db/try-eval/photos/wh-jacket-plain.jpg",
+    "sections": ["water_heater", "plumbing", "interior"],
+    "results": ["no_defect", "unclear"],
+    "evidence": "Crop of the painted tank jacket below the label on the Wikimedia water heater photo. No fittings and no label text. Ordinary paint variation and a faint shade band only."
+  },
+  {
+    "id": "heldout-ceiling-corner",
+    "photo": "db/try-eval/photos/ceiling-intact-corner.jpg",
+    "sections": ["interior"],
+    "results": ["no_defect", "unclear"],
+    "evidence": "Corner crop of intact painted ceiling from the Wikimedia ceiling photo, away from the peeling area. Plain paint, no stain and no peeled paper."
   }
 ]

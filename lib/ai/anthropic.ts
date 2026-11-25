@@ -176,6 +176,8 @@ export async function draftFindingsFromImage(
   const reply = await create({
     model: PHOTO_FINDING_MODEL,
     max_tokens: 2400,
+    // Low temperature: inspection drafts should not embellish an intact surface.
+    temperature: 0,
     system: PHOTO_FINDING_SYSTEM_PROMPT,
     messages: [
       {
